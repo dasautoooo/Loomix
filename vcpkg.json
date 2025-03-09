@@ -1,0 +1,17 @@
+{
+  "name" : "loomix",
+  "version" : "1.0.0",
+  "dependencies" : [ {
+    "name" : "imgui",
+    "default-features": true,
+    "features": [
+      "docking-experimental",
+      "glfw-binding"
+    ],
+    "version>=" : "1.91.8#4"
+  }, {
+    "name" : "glfw3",
+    "version>=" : "3.4#1"
+  } ],
+  "builtin-baseline": "afa12e7292fb47771e619675d7915645fe0adb1b"
+}
