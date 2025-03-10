@@ -21,6 +21,12 @@ add_executable(Loomix
         src/LoomixApp.cpp
         src/Layer.h
         src/EntryPoint.h
+        src/Shader.h
+        src/Shader.cpp
+        src/Camera.h
+        src/Camera.cpp
+        src/TriangleLayer.cpp
+        src/TriangleLayer.h
 )
 
 target_include_directories(Loomix PRIVATE third_party)
