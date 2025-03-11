@@ -27,6 +27,10 @@ add_executable(Loomix
         src/Camera.cpp
         src/TriangleLayer.cpp
         src/TriangleLayer.h
+        src/Input/Input.h
+        src/Input/Input.cpp
+        src/Input/KeyCodes.h
+        src/Timer.h
 )
 
 target_include_directories(Loomix PRIVATE third_party)

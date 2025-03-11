@@ -3,9 +3,12 @@
 //
 
 #include "TriangleLayer.h"
+#include "Input/Input.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include "Timer.h"
 
 TriangleLayer::TriangleLayer() : Layer() {
     camera = new Camera(CameraMode::ORBIT);
@@ -65,7 +68,54 @@ void TriangleLayer::onUIRender() {
 }
 
 void TriangleLayer::onUpdate(float ts)  {
-    renderToFramebuffer();
+    Timer timer;
+
+    handleCameraInput(ts);
+    renderToFramebuffer(ts);
+
+    lastRenderTime = timer.elapsedMillis();
+}
+
+void TriangleLayer::handleCameraInput(float ts) {
+    // 1) Right Mouse Button => camera->rightMouseHeld
+    if (Input::isMouseButtonDown(MouseButton::Right)) {
+        camera->setRightMouseHeld(true);
+        Input::setCursorMode(CursorMode::Locked);
+    } else {
+        camera->setRightMouseHeld(false);
+        Input::setCursorMode(CursorMode::Normal);
+    }
+
+    // 2) Mouse Movement => camera->processMouse()
+    // Only rotate if RMB is held
+    if (camera->rightMouseHeld) {
+        glm::vec2 mousePos = Input::getMousePosition();
+        if (camera->firstMouse) {
+            camera->lastX = mousePos.x;
+            camera->lastY = mousePos.y;
+            camera->firstMouse = false;
+        }
+        float xoffset = mousePos.x - camera->lastX;
+        float yoffset = camera->lastY - mousePos.y; // reversed y
+
+        camera->lastX = mousePos.x;
+        camera->lastY = mousePos.y;
+
+        camera->processMouse(xoffset, yoffset);
+    } else {
+        // If we release RMB, reset firstMouse
+        camera->firstMouse = true;
+    }
+
+    // 3) Keyboard WASD => camera->processKeyboard()
+    // Only move if RMB is held
+    if (camera->rightMouseHeld && camera->mode == CameraMode::FREE) {
+        float moveSpeed = camera->movementSpeed * ts; // scale by delta time
+        if (Input::isKeyDown(KeyCode::W)) { camera->processKeyboard(0, +moveSpeed); } // forward
+        if (Input::isKeyDown(KeyCode::S)) { camera->processKeyboard(0, -moveSpeed); } // backward
+        if (Input::isKeyDown(KeyCode::A)) { camera->processKeyboard(-moveSpeed, 0); } // left
+        if (Input::isKeyDown(KeyCode::D)) { camera->processKeyboard(+moveSpeed, 0); } // right
+    }
 }
 
 void TriangleLayer::createOrResizeFBO(int width, int height) {
@@ -146,7 +196,7 @@ void TriangleLayer::setupTriangle() {
     glBindVertexArray(0);
 }
 
-void TriangleLayer::renderToFramebuffer() {
+void TriangleLayer::renderToFramebuffer(float ts) {
     // If viewport is 0, skip
     if (viewportWidth == 0 || viewportHeight == 0)
         return;

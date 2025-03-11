@@ -31,13 +31,15 @@ private:
     Shader* shader = nullptr;
     Camera* camera = nullptr;
 
+    void handleCameraInput(float ts);
+
     void createOrResizeFBO(int width, int height);
 
     void resizeFramebuffer(int width, int height);
 
     void setupTriangle();
 
-    void renderToFramebuffer();
+    void renderToFramebuffer(float ts);
 };
 
 
