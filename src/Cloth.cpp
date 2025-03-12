@@ -29,6 +29,10 @@ void Cloth::pinCorners()  {
 }
 
 void Cloth::update(float dt, const glm::vec3 &gravity)  {
+
+    const float MAX_DT = 0.001f; // 1ms max timestep
+    dt = std::min(dt, MAX_DT);
+
     // 1) Compute forces on each particle
     std::vector<glm::vec3> forces(particles.size(), glm::vec3(0.0f));
 

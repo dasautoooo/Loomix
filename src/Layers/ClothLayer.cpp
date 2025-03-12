@@ -12,8 +12,8 @@ ClothLayer::ClothLayer(){
     // Camera
     camera = new Camera(CameraMode::ORBIT);
     camera->distance = 10.0f;
-    camera->yaw = 0.0f;
-    camera->pitch = 90.0f;
+    camera->yaw = 45.0f;
+    camera->pitch = 45.0f;
     camera->fov = 45.0f;
     camera->movementSpeed = 5.0f;
     camera->sensitivity = 0.1f;
