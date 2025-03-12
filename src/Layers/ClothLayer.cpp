@@ -45,7 +45,15 @@ ClothLayer::~ClothLayer(){
 void ClothLayer::onUIRender() {
     // Settings panel
     ImGui::Begin("Settings");
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
     ImGui::Text("Last render: %.3fms", lastRenderTime);
+    ImGui::Text("Timestep: %.4f s", 1.0f / ImGui::GetIO().Framerate);
+
+    // Add a reset button
+    if (ImGui::Button("Reset Cloth")) {
+        delete cloth;
+        setupCloth();
+    }
 
     // Let user adjust cloth parameters
     if (ImGui::SliderFloat("Stiffness", &clothStiffness, 10.0f, 1000.0f)) {
@@ -54,6 +62,7 @@ void ClothLayer::onUIRender() {
     if (ImGui::SliderFloat("Damping", &clothDamping, 0.0f, 2.0f)) {
         cloth->setDamping(clothDamping);
     }
+
     ImGui::End();
 
     // Viewport
