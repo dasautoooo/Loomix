@@ -6,17 +6,17 @@
 #define TRIANGLELAYER_H
 
 #include "Layer.h"
-#include "Camera.h"
-#include "Shader.h"
+#include "../Camera.h"
+#include "../Utilities/Shader.h"
 #include "imgui.h"
 
 class TriangleLayer : public Layer {
 public:
     TriangleLayer();
 
-    virtual ~TriangleLayer();
+     ~TriangleLayer() override;
 
-    virtual void onUIRender() override;
+    void onUIRender() override;
 
     void onUpdate(float ts) override;
 

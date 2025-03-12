@@ -3,12 +3,12 @@
 //
 
 #include "TriangleLayer.h"
-#include "Input/Input.h"
+#include "../Input/Input.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "Timer.h"
+#include "../Utilities/Timer.h"
 
 TriangleLayer::TriangleLayer() : Layer() {
     camera = new Camera(CameraMode::ORBIT);

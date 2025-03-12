@@ -3,16 +3,18 @@
 //
 
 #include "imgui.h"
-#include "EntryPoint.h"
-#include "Shader.h"
-#include "TriangleLayer.h"
+#include "Lifecycle/EntryPoint.h"
+#include "Utilities/Shader.h"
+#include "Layers/TriangleLayer.h"
+#include "Layers/ClothLayer.h"
 
 Application* createApplication(int argc, char** argv)
 {
     ApplicationSpecification spec;
 
     Application* app = new Application(spec);
-    app->pushLayer<TriangleLayer>();
+    // app->pushLayer<TriangleLayer>();
+    app->pushLayer<ClothLayer>();
     app->setMenubarCallback([app]() {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Exit")) {

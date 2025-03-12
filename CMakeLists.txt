@@ -16,21 +16,25 @@ add_executable(Loomix
         third_party/imgui/backends/imgui_impl_glfw.h
         third_party/imgui/backends/imgui_impl_glfw.cpp
         third_party/glad/src/glad.c
-        src/Application.cpp
-        src/Application.h
+        src/Lifecycle/Application.cpp
+        src/Lifecycle/Application.h
         src/LoomixApp.cpp
-        src/Layer.h
-        src/EntryPoint.h
-        src/Shader.h
-        src/Shader.cpp
+        src/Layers/Layer.h
+        src/Lifecycle/EntryPoint.h
+        src/Utilities/Shader.h
+        src/Utilities/Shader.cpp
         src/Camera.h
         src/Camera.cpp
-        src/TriangleLayer.cpp
-        src/TriangleLayer.h
+        src/Layers/TriangleLayer.cpp
+        src/Layers/TriangleLayer.h
         src/Input/Input.h
         src/Input/Input.cpp
         src/Input/KeyCodes.h
-        src/Timer.h
+        src/Utilities/Timer.h
+        src/Cloth.h
+        src/Cloth.cpp
+        src/Layers/ClothLayer.cpp
+        src/Layers/ClothLayer.h
 )
 
 target_include_directories(Loomix PRIVATE third_party)
