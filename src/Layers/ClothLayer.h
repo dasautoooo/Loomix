@@ -46,7 +46,7 @@ private:
     void handleCameraInput(float ts);
 
     // Cloth rendering
-    void drawClothWireframe();
+    void drawClothWireframeVBO();
 
     // Helpers
     void setupCloth();

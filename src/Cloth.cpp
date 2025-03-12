@@ -110,7 +110,7 @@ void Cloth::initParticles(float massPerParticle)  {
         for (int x = 0; x < width; x++) {
             // create a particle at (x * spacing, 0, y * spacing)
             glm::vec3 pos(x * spacing, 0.0f, -y * spacing);
-            particles.emplace_back(Particle(pos, massPerParticle));
+            particles.emplace_back(pos, massPerParticle);
         }
     }
 }

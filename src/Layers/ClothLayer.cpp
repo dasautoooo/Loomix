@@ -11,12 +11,12 @@
 ClothLayer::ClothLayer(){
     // Camera
     camera = new Camera(CameraMode::ORBIT);
-    camera->distance  = 3.0f;
-    camera->yaw       = -90.0f;
-    camera->pitch     = 0.0f;
-    camera->fov       = 45.0f;
+    camera->distance = 10.0f;
+    camera->yaw = 0.0f;
+    camera->pitch = 90.0f;
+    camera->fov = 45.0f;
     camera->movementSpeed = 5.0f;
-    camera->sensitivity   = 0.1f;
+    camera->sensitivity = 0.1f;
 
     // Create cloth
     setupCloth(); // initialize cloth system
@@ -174,7 +174,7 @@ void ClothLayer::renderToFramebuffer(float ts) {
     shader->setMat4("uProjection", projection);
 
     // Draw cloth as wireframe
-    drawClothWireframe();
+    drawClothWireframeVBO();
 
     // Revert polygon mode if you want
     // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -221,74 +221,74 @@ void ClothLayer::handleCameraInput(float ts) {
     }
 }
 
-void ClothLayer::drawClothWireframe(){
+void ClothLayer::drawClothWireframeVBO() {
     const auto& particles = cloth->getParticles();
     int clothW = cloth->getClothWidth();
     int clothH = cloth->getClothHeight();
 
-    // We will use glBegin(GL_LINES) to connect neighbors.
-    glBegin(GL_LINES);
+    // Collect vertices for all lines
+    std::vector<glm::vec3> vertices;
 
-    // -----------------------
-    // 1) Horizontal structural lines
-    // -----------------------
+    // Horizontal structural lines
     for (int y = 0; y < clothH; y++) {
         for (int x = 0; x < clothW - 1; x++) {
             int i1 = y * clothW + x;
             int i2 = y * clothW + (x + 1);
-
-            glm::vec3 p1 = particles[i1].position;
-            glm::vec3 p2 = particles[i2].position;
-
-            glVertex3f(p1.x, p1.y, p1.z);
-            glVertex3f(p2.x, p2.y, p2.z);
+            vertices.push_back(particles[i1].position);
+            vertices.push_back(particles[i2].position);
         }
     }
 
-    // -----------------------
-    // 2) Vertical structural lines
-    // -----------------------
+    // Vertical structural lines
     for (int y = 0; y < clothH - 1; y++) {
         for (int x = 0; x < clothW; x++) {
             int i1 = y * clothW + x;
             int i2 = (y + 1) * clothW + x;
-
-            glm::vec3 p1 = particles[i1].position;
-            glm::vec3 p2 = particles[i2].position;
-
-            glVertex3f(p1.x, p1.y, p1.z);
-            glVertex3f(p2.x, p2.y, p2.z);
+            vertices.push_back(particles[i1].position);
+            vertices.push_back(particles[i2].position);
         }
     }
 
-    // -----------------------
-    // 3) Shear lines (diagonals)
-    //    Typically within each cell (x, y) => (x+1, y+1) and (x+1, y-1)
-    //    For a standard rectangular cloth, we do two diagonals in each cell:
-    //       p00 -> p11  and p10 -> p01
-    // -----------------------
+    // Shear lines (diagonals)
     for (int y = 0; y < clothH - 1; y++) {
         for (int x = 0; x < clothW - 1; x++) {
-            int p00 = y     * clothW + x;
-            int p10 = y     * clothW + (x + 1);
-            int p01 = (y+1) * clothW + x;
-            int p11 = (y+1) * clothW + (x + 1);
+            int p00 = y * clothW + x;
+            int p10 = y * clothW + (x + 1);
+            int p01 = (y + 1) * clothW + x;
+            int p11 = (y + 1) * clothW + (x + 1);
 
-            // Shear diagonal #1: p00 -> p11
-            glm::vec3 v00 = particles[p00].position;
-            glm::vec3 v11 = particles[p11].position;
-            glVertex3f(v00.x, v00.y, v00.z);
-            glVertex3f(v11.x, v11.y, v11.z);
-
-            // Shear diagonal #2: p10 -> p01
-            glm::vec3 v10 = particles[p10].position;
-            glm::vec3 v01 = particles[p01].position;
-            glVertex3f(v10.x, v10.y, v10.z);
-            glVertex3f(v01.x, v01.y, v01.z);
+            // p00 -> p11
+            vertices.push_back(particles[p00].position);
+            vertices.push_back(particles[p11].position);
+            // p10 -> p01
+            vertices.push_back(particles[p10].position);
+            vertices.push_back(particles[p01].position);
         }
     }
 
-    glEnd(); // end GL_LINES
+    // Create and bind VAO and VBO
+    unsigned int VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_DYNAMIC_DRAW);
+
+    // Assume the vertex shader uses location 0 for position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Draw lines
+    glDrawArrays(GL_LINES, 0, vertices.size());
+
+    // Cleanup: unbind and delete buffers (or keep them for reuse)
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &VAO);
 }
 
 void ClothLayer::setupCloth() {
