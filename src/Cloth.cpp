@@ -50,7 +50,7 @@ void Cloth::update(float dt, const glm::vec3 &gravity)  {
 
         glm::vec3 delta = pB.position - pA.position;
         float dist = glm::length(delta);
-        if (dist == 0.0f) continue; // avoid divide by zero
+        if (dist < 0.0001f) continue; // avoid divide by zero with a small epsilon
 
         glm::vec3 dir = delta / dist;  // unit direction from A to B
         float stretch = dist - s.restLength;
@@ -59,8 +59,10 @@ void Cloth::update(float dt, const glm::vec3 &gravity)  {
         glm::vec3 fs = -s.stiffness * stretch * dir;
 
         // Damping: proportional to relative velocity
-        glm::vec3 dv = (pB.velocity - pA.velocity);
-        glm::vec3 fd = -s.damping * dv;
+        glm::vec3 dv = pB.velocity - pA.velocity;
+        // Project the velocity difference onto the spring direction
+        float relVelInDir = glm::dot(dv, dir);
+        glm::vec3 fd = -s.damping * relVelInDir * dir;
 
         // Net spring force
         glm::vec3 f = fs + fd;
@@ -83,6 +85,40 @@ void Cloth::update(float dt, const glm::vec3 &gravity)  {
         p.velocity += accel * dt;
         // Position
         p.position += p.velocity * dt;
+    }
+
+    // 3) Apply constraint enforcement to prevent excessive stretching
+    // This is important for stability
+    for (int iter = 0; iter < 2; iter++) { // Multiple iterations for better convergence
+        for (auto &s: springs) {
+            if (particles[s.p1].pinned && particles[s.p2].pinned)
+                continue;
+
+            glm::vec3 delta = particles[s.p2].position - particles[s.p1].position;
+            float currentLength = glm::length(delta);
+
+            if (currentLength < 0.0001f)
+                continue; // Avoid division by zero
+
+            // The maximum allowed stretch factor (1.1 = 10% stretch)
+            const float MAX_STRETCH = 1.1f;
+
+            if (currentLength > s.restLength * MAX_STRETCH) {
+                glm::vec3 dir = delta / currentLength;
+                float correction = currentLength - (s.restLength * MAX_STRETCH);
+
+                // Apply position correction
+                if (particles[s.p1].pinned) {
+                    particles[s.p2].position -= dir * correction;
+                } else if (particles[s.p2].pinned) {
+                    particles[s.p1].position += dir * correction;
+                } else {
+                    // Distribute correction between both particles
+                    particles[s.p1].position += dir * (correction * 0.5f);
+                    particles[s.p2].position -= dir * (correction * 0.5f);
+                }
+            }
+        }
     }
 }
 

@@ -31,12 +31,12 @@ private:
     Camera* camera = nullptr;
     Cloth* cloth = nullptr;
 
-    // Cloth parameters
-    float clothStiffness = 200.0f;
-    float clothDamping   = 0.5f;
-    float clothMass      = 1.0f;
-    int   clothW         = 20;  // cloth grid width
-    int   clothH         = 20;  // cloth grid height
+    // Cloth parameters - adjusted for better movement
+    float clothStiffness = 100.0f; // Reduced from 200.0f
+    float clothDamping = 0.2f; // Reduced from 0.5f
+    float clothMass = 0.5f; // Reduced from 1.0f for more responsive movement
+    int clothW = 20; // cloth grid width
+    int clothH = 20; // cloth grid height
 
     Shader* shader = nullptr;
 
