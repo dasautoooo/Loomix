@@ -304,6 +304,11 @@ void ClothLayer::setupCloth() {
     // Create the cloth system with default parameters
     cloth = new Cloth(clothW, clothH, 0.1f, clothMass);
 
+    // Calculate cloth center for camera target
+    float centerX = (clothW - 1) * 0.1f / 2.0f;
+    float centerZ = -(clothH - 1) * 0.1f / 2.0f;
+    camera->target = glm::vec3(centerX, 0.0f, centerZ);
+
     // Pin corners (optional)
     cloth->pinCorners();
 
