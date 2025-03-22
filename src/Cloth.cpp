@@ -55,8 +55,15 @@ void Cloth::update(float dt, const glm::vec3 &gravity)  {
         glm::vec3 dir = delta / dist;  // unit direction from A to B
         float stretch = dist - s.restLength;
 
+        // Calculate spring force but with a force limiter to prevent extreme forces
+        const float MAX_FORCE_MAGNITUDE = 50.0f; // Limit maximum force
+        float forceMagnitude = -s.stiffness * stretch;
+
+        // Clamp the force to prevent explosions
+        forceMagnitude = std::max(-MAX_FORCE_MAGNITUDE, std::min(MAX_FORCE_MAGNITUDE, forceMagnitude));
+
         // Hooke's law: F = -k * (dist - restLength) in direction
-        glm::vec3 fs = -s.stiffness * stretch * dir;
+        glm::vec3 fs = forceMagnitude * dir;
 
         // Damping: proportional to relative velocity
         glm::vec3 dv = pB.velocity - pA.velocity;
@@ -133,6 +140,13 @@ void Cloth::setDamping(float c){
     // Iterate over all springs and set the new damping
     for (auto& s : springs) {
         s.damping = c;
+    }
+}
+
+void Cloth::setMass(float massPerParticle) {
+    // Iterate over all particles and set the new mass
+    for (auto& p : particles) {
+        p.mass = massPerParticle;
     }
 }
 

@@ -48,6 +48,7 @@ public:
 
     void setStiffness(float k);       // Adjust all spring stiffness
     void setDamping(float c);         // Adjust all spring damping
+    void setMass(float massPerParticle);
 
     int getClothWidth() const;
     int getClothHeight() const;

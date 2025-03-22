@@ -59,8 +59,11 @@ void ClothLayer::onUIRender() {
     if (ImGui::SliderFloat("Stiffness", &clothStiffness, 10.0f, 1000.0f)) {
         cloth->setStiffness(clothStiffness);
     }
-    if (ImGui::SliderFloat("Damping", &clothDamping, 0.0f, 2.0f)) {
+    if (ImGui::SliderFloat("Damping", &clothDamping, -2.0f, 2.0f)) {
         cloth->setDamping(clothDamping);
+    }
+    if (ImGui::SliderFloat("Mass per particle", &clothMass, 0.1f, 2.0f)) {
+        cloth->setMass(clothMass);
     }
 
     ImGui::End();
