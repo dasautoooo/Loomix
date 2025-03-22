@@ -56,9 +56,9 @@ void ClothLayer::onUIRender() {
     }
 
     // Let user adjust cloth parameters
-    if (ImGui::SliderFloat("Stiffness", &clothStiffness, 10.0f, 1000.0f)) {
-        cloth->setStiffness(clothStiffness);
-    }
+    // if (ImGui::SliderFloat("Stiffness", &clothStiffness, 10.0f, 1000.0f)) {
+    //     cloth->setStiffness(clothStiffness);
+    // }
     if (ImGui::SliderFloat("Damping", &clothDamping, 0.0f, 2.0f)) {
         cloth->setDamping(clothDamping);
     }
@@ -100,17 +100,17 @@ void ClothLayer::onUpdate(float ts) {
     handleCameraInput(ts);
 
     // 2) Integrate cloth
-    cloth->update(ts, glm::vec3(0.0f, -9.81f, 0.0f));
+    cloth->update(ts);
 
     // Print positions of each particle
-    const auto& particles = cloth->getParticles();
-    for (size_t i = 0; i < particles.size(); i++) {
-        const auto& p = particles[i];
-        std::cout << "Particle " << i << ": ("
-                  << p.position.x << ", "
-                  << p.position.y << ", "
-                  << p.position.z << ")\n";
-    }
+    // const auto& particles = cloth->getParticles();
+    // for (size_t i = 0; i < particles.size(); i++) {
+    //     const auto& p = particles[i];
+    //     std::cout << "Particle " << i << ": ("
+    //               << p.position.x << ", "
+    //               << p.position.y << ", "
+    //               << p.position.z << ")\n";
+    // }
 
     // 3) Render to the framebuffer
     renderToFramebuffer(ts);
@@ -231,20 +231,20 @@ void ClothLayer::handleCameraInput(float ts) {
 }
 
 void ClothLayer::drawClothWireframeVBO() {
-    const auto& particles = cloth->getParticles();
+    const auto& positions = cloth->getPositions();
     int clothW = cloth->getClothWidth();
     int clothH = cloth->getClothHeight();
 
-    // Collect vertices for all lines
     std::vector<glm::vec3> vertices;
+    // vertices.reserve(/*some estimate*/);
 
     // Horizontal structural lines
     for (int y = 0; y < clothH; y++) {
         for (int x = 0; x < clothW - 1; x++) {
             int i1 = y * clothW + x;
-            int i2 = y * clothW + (x + 1);
-            vertices.push_back(particles[i1].position);
-            vertices.push_back(particles[i2].position);
+            int i2 = i1 + 1;
+            vertices.push_back(positions[i1]);
+            vertices.push_back(positions[i2]);
         }
     }
 
@@ -253,8 +253,8 @@ void ClothLayer::drawClothWireframeVBO() {
         for (int x = 0; x < clothW; x++) {
             int i1 = y * clothW + x;
             int i2 = (y + 1) * clothW + x;
-            vertices.push_back(particles[i1].position);
-            vertices.push_back(particles[i2].position);
+            vertices.push_back(positions[i1]);
+            vertices.push_back(positions[i2]);
         }
     }
 
@@ -267,48 +267,40 @@ void ClothLayer::drawClothWireframeVBO() {
             int p11 = (y + 1) * clothW + (x + 1);
 
             // p00 -> p11
-            vertices.push_back(particles[p00].position);
-            vertices.push_back(particles[p11].position);
+            vertices.push_back(positions[p00]);
+            vertices.push_back(positions[p11]);
             // p10 -> p01
-            vertices.push_back(particles[p10].position);
-            vertices.push_back(particles[p01].position);
+            vertices.push_back(positions[p10]);
+            vertices.push_back(positions[p01]);
         }
     }
 
-    // Create and bind VAO and VBO
-    unsigned int VAO, VBO;
+    unsigned int VAO=0, VBO=0;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(glm::vec3), vertices.data(), GL_DYNAMIC_DRAW);
 
-    // Assume the vertex shader uses location 0 for position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(0);
 
     // Draw lines
-    glDrawArrays(GL_LINES, 0, vertices.size());
+    glDrawArrays(GL_LINES, 0, (GLsizei)vertices.size());
 
-    // Cleanup: unbind and delete buffers (or keep them for reuse)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1,&VBO);
+    glDeleteVertexArrays(1,&VAO);
 }
 
 void ClothLayer::setupCloth() {
-    // Create the cloth system with default parameters
-    cloth = new Cloth(clothW, clothH, 0.1f, clothMass);
-
-    // Pin corners (optional)
+    cloth = new Cloth(clothW, clothH, 0.1f);
+    // set pinned corners, stiffness, etc.
     cloth->pinCorners();
-
-    // Set initial stiffness/damping
-    cloth->setStiffness(clothStiffness);
     cloth->setDamping(clothDamping);
 }
 

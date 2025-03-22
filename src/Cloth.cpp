@@ -4,184 +4,318 @@
 
 #include "Cloth.h"
 
-Cloth::Cloth(int width, int height, float spacing, float massPerParticle)
-        : width(width), height(height), spacing(spacing) {
-    // Create particles in a grid
-    initParticles(massPerParticle);
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
-    createSprings();
+static const int STRUCTURAL=0;
+static const int SHEAR=1;
+static const int BEND=2;
+
+Cloth::Cloth()
+    : numX(0), numY(0), total_points(0),
+      spacing(0.2f), mass(1.0f),
+      gravity(0.f, -0.00981f, 0.f),
+      defaultDamping(-0.0125f),
+      isEllipsoidCollisionOn(false),
+      useProvotInverse(false)
+{
+    ellipsoid = glm::translate(glm::mat4(1), glm::vec3(0,2,0));
+    ellipsoid = glm::rotate(ellipsoid, glm::radians(45.0f), glm::vec3(1,0,0));
+    ellipsoid = glm::scale(ellipsoid, glm::vec3(1.f,1.f,0.5f));
+    inverse_ellipsoid = glm::inverse(ellipsoid);
+
+    center= glm::vec3(0,0,0);
+    radius=1.0f;
 }
 
-void Cloth::pinCorners()  {
-    // top-left
-    int tl = 0;
-    // top-right
-    int tr = width - 1;
-    // bottom-left
-    int bl = (height - 1) * width;
-    // bottom-right
-    int br = (height - 1) * width + (width - 1);
-
-    particles[tl].pinned = true;
-    particles[tr].pinned = true;
-    particles[bl].pinned = true;
-    particles[br].pinned = true;
+Cloth::Cloth(int Nx, int Ny, float sp)
+    : Cloth() // call default constructor first
+{
+    init(Nx, Ny, sp);
 }
 
-void Cloth::update(float dt, const glm::vec3 &gravity)  {
+Cloth::~Cloth()
+{
+    // no dynamic pointers, so it’s fine
+}
 
-    const float MAX_DT = 0.001f; // 1ms max timestep
-    dt = std::min(dt, MAX_DT);
+void Cloth::init(int Nx, int Ny, float sp)
+{
+    this->numX= Nx;
+    this->numY= Ny;
+    this->spacing= sp;
 
-    // 1) Compute forces on each particle
-    std::vector<glm::vec3> forces(particles.size(), glm::vec3(0.0f));
+    total_points= (numX+1)*(numY+1);
 
-    // Gravity
-    for (size_t i = 0; i < particles.size(); i++) {
-        if (!particles[i].pinned) {
-            forces[i] += particles[i].mass * gravity;
+    pinned.resize(total_points, false);
+
+    X.clear();
+    X_last.clear();
+    F.clear();
+    springs.clear();
+    indices.clear();
+
+    X.resize(total_points);
+    X_last.resize(total_points);
+    F.resize(total_points, glm::vec3(0));
+
+    // We can also fill a triangle index buffer if we want
+    // or just do line rendering in "render()"
+
+    // build grid positions
+    int count=0;
+    for(int y=0; y<= numY; y++){
+        for(int x=0; x<= numX; x++){
+            glm::vec3 P( x*spacing, 2.0f, -y*spacing );
+            X[count] = P;
+            X_last[count] = P;
+            count++;
         }
     }
 
-    // Springs
-    for (auto& s : springs) {
-        auto& pA = particles[s.p1];
-        auto& pB = particles[s.p2];
+    // create structural, shear, bend springs
+    // structural horizontally
+    float KsStruct= 50.75f, KdStruct= -0.25f;
+    float KsShear=  50.75f, KdShear=  -0.25f;
+    float KsBend=   50.95f, KdBend=  -0.25f;
 
-        glm::vec3 delta = pB.position - pA.position;
-        float dist = glm::length(delta);
-        if (dist == 0.0f) continue; // avoid divide by zero
-
-        glm::vec3 dir = delta / dist;  // unit direction from A to B
-        float stretch = dist - s.restLength;
-
-        // Hooke's law: F = -k * (dist - restLength) in direction
-        glm::vec3 fs = -s.stiffness * stretch * dir;
-
-        // Damping: proportional to relative velocity
-        glm::vec3 dv = (pB.velocity - pA.velocity);
-        glm::vec3 fd = -s.damping * dv;
-
-        // Net spring force
-        glm::vec3 f = fs + fd;
-
-        if (!pA.pinned) forces[s.p1] += f;
-        if (!pB.pinned) forces[s.p2] -= f;  // opposite on B
+    for(int row=0; row<=Ny; row++){
+        for(int col=0; col< numX; col++){
+            int i1= row*(numX+1)+ col;
+            int i2= i1+1;
+            addSpring(i1, i2, KsStruct, KdStruct, STRUCTURAL);
+        }
+    }
+    // structural vertically
+    for(int col=0; col<= numX; col++){
+        for(int row=0; row< numY; row++){
+            int i1= row*(numX+1)+ col;
+            int i2= (row+1)*(numX+1)+ col;
+            addSpring(i1, i2, KsStruct, KdStruct, STRUCTURAL);
+        }
     }
 
-    // 2) Integrate (simple Euler)
-    for (size_t i = 0; i < particles.size(); i++) {
-        auto& p = particles[i];
-        if (p.pinned) {
-            // pinned => no movement
-            p.velocity = glm::vec3(0.0f);
+    // shear
+    for(int row=0; row< numY; row++){
+        for(int col=0; col< numX; col++){
+            int i0= row*(numX+1)+ col;
+            int i1= i0+1;
+            int i2= i0+ (numX+1);
+            int i3= i2+1;
+            addSpring(i0, i3, KsShear, KdShear, SHEAR);
+            addSpring(i1, i2, KsShear, KdShear, SHEAR);
+        }
+    }
+
+    // bend
+    for(int row=0; row<= numY; row++){
+        for(int col=0; col< (numX-1); col++){
+            int i1= row*(numX+1)+ col;
+            int i2= i1+2;
+            addSpring(i1, i2, KsBend, KdBend, BEND);
+        }
+    }
+    for(int col=0; col<= numX; col++){
+        for(int row=0; row< (numY-1); row++){
+            int i1= row*(numX+1)+ col;
+            int i2= (row+2)*(numX+1)+ col;
+            addSpring(i1, i2, KsBend, KdBend, BEND);
+        }
+    }
+}
+
+//------------------------------------
+// Simple function to pin corners
+//------------------------------------
+void Cloth::pinCorners()
+{
+    if (total_points == 0) return;
+
+    // top-left => index 0
+    int tl = 0;
+    pinned[tl] = true;
+
+    // top-right => index numX
+    int tr = numX;
+    pinned[tr] = true;
+
+    // bottom-left => row = numY, col=0 => index = numY*(numX+1)
+    int bl = numY * (numX + 1);
+    pinned[bl] = true;
+
+    // bottom-right => bottom-left + numX
+    int br = bl + numX;
+    pinned[br] = true;
+}
+
+//------------------------------------
+// Add a spring
+//------------------------------------
+void Cloth::addSpring(int a, int b, float Ks, float Kd, int type)
+{
+    Spring s;
+    s.p1= a;
+    s.p2= b;
+    s.type= type;
+    s.Ks= Ks;
+    s.Kd= Kd;
+    // measure rest length from X
+    glm::vec3 dp= X[a]- X[b];
+    s.rest_length= glm::length(dp);
+    springs.push_back(s);
+}
+
+//------------------------------------
+// Update cloth by dt
+//------------------------------------
+void Cloth::update(float dt)
+{
+    // 1) compute forces
+    computeForces(dt);
+    // 2) integrate (Verlet)
+    integrateVerlet(dt);
+    // 3) collisions
+    if(isEllipsoidCollisionOn){
+        ellipsoidCollision();
+    }
+    // 4) optional provot
+    if(useProvotInverse){
+        applyProvotInverse();
+    }
+}
+
+//------------------------------------
+// Render cloth as immediate-mode lines
+//------------------------------------
+void Cloth::render()
+{
+    // We'll do structural + shear + bend lines
+    // For each spring, draw a line from X[p1] to X[p2]
+    glColor3f(1,1,1);
+    glBegin(GL_LINES);
+    for(auto &s : springs){
+        glm::vec3 pA= X[s.p1];
+        glm::vec3 pB= X[s.p2];
+        glVertex3fv(glm::value_ptr(pA));
+        glVertex3fv(glm::value_ptr(pB));
+    }
+    glEnd();
+
+    // You can also draw points:
+    glPointSize(5.f);
+    glBegin(GL_POINTS);
+    for(size_t i=0; i< X.size(); i++){
+        glVertex3fv(glm::value_ptr(X[i]));
+    }
+    glEnd();
+}
+
+//------------------------------------
+// Compute forces: gravity + damping + spring
+//------------------------------------
+void Cloth::computeForces(float dt)
+{
+    // zero out
+    for(auto &f: F){
+        f= glm::vec3(0.f);
+    }
+
+    // 1) gravity + global damping
+    for(size_t i=0; i< X.size(); i++){
+        glm::vec3 vel= (X[i] - X_last[i])/ dt;
+        F[i]+= gravity* mass;  // gravity
+        F[i]+= defaultDamping* vel; // global damping
+    }
+
+    // 2) spring forces
+    for(auto &s: springs){
+        int iA= s.p1;
+        int iB= s.p2;
+
+        glm::vec3 pA= X[iA];
+        glm::vec3 pB= X[iB];
+        glm::vec3 vA= (pA- X_last[iA])/ dt;
+        glm::vec3 vB= (pB- X_last[iB])/ dt;
+
+        glm::vec3 deltaP= pA- pB;
+        glm::vec3 deltaV= vA- vB;
+        float dist= glm::length(deltaP);
+        if(dist < 1e-6f) continue;
+
+        float leftTerm= -s.Ks*(dist- s.rest_length);
+        float rightTerm= s.Kd* (glm::dot(deltaV, deltaP)/ dist);
+
+        glm::vec3 force= (leftTerm+ rightTerm)* (deltaP/dist);
+
+        F[iA]+= force;
+        F[iB]-= force;
+    }
+}
+
+//------------------------------------
+// Integrate using classical position-based Verlet
+//------------------------------------
+void Cloth::integrateVerlet(float dt)
+{
+    float dt2mass = (dt * dt) / mass;
+    for (size_t i = 0; i < X.size(); i++) {
+        // if pinned, skip
+        if (pinned[i]) {
             continue;
         }
+        // otherwise, standard Verlet
+        glm::vec3 temp = X[i];
+        X[i] = X[i] + (X[i] - X_last[i]) + F[i] * dt2mass;
+        X_last[i] = temp;
 
-        glm::vec3 accel = forces[i] / p.mass;
-        // Velocity
-        p.velocity += accel * dt;
-        // Position
-        p.position += p.velocity * dt;
-    }
-}
-
-void Cloth::setStiffness(float k) {
-    // Iterate over all springs and set the new stiffness
-    for (auto& s : springs) {
-        s.stiffness = k;
-    }
-}
-
-void Cloth::setDamping(float c){
-    // Iterate over all springs and set the new damping
-    for (auto& s : springs) {
-        s.damping = c;
-    }
-}
-
-int Cloth::getClothWidth() const{
-    return width;
-}
-
-int Cloth::getClothHeight() const{
-    return height;
-}
-
-void Cloth::initParticles(float massPerParticle)  {
-    particles.reserve(width * height);
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            // create a particle at (x * spacing, 0, y * spacing)
-            glm::vec3 pos(x * spacing, 0.0f, -y * spacing);
-            particles.emplace_back(pos, massPerParticle);
+        // e.g. floor collision
+        if (X[i].y < 0.f) {
+            X[i].y = 0.f;
         }
     }
 }
 
-void Cloth::createSprings()  {
-    // constants for demonstration
-    float k_struct = 200.0f;
-    float c_struct = 0.5f;
-    float k_shear  = 120.0f;
-    float c_shear  = 0.5f;
-    float k_bend   = 100.0f;
-    float c_bend   = 0.5f;
+//------------------------------------
+// Ellipsoid collision
+//------------------------------------
+void Cloth::ellipsoidCollision()
+{
+    // e.g. from your code, we do a transform approach
+    for(size_t i=0; i< X.size(); i++){
+        glm::vec4 xp= inverse_ellipsoid* glm::vec4(X[i],1.f);
+        glm::vec3 delta= glm::vec3(xp)- center;
+        float dist= glm::length(delta);
+        if(dist< radius){
+            float diff= radius- dist;
+            glm::vec3 fix= (diff* delta)/ dist;
+            xp.x+= fix.x;
+            xp.y+= fix.y;
+            xp.z+= fix.z;
 
-    // structural: horizontal + vertical
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int idx = y * width + x;
-
-            // horizontal neighbor
-            if (x + 1 < width) {
-                int neighbor = y * width + (x + 1);
-                addSpring(idx, neighbor, k_struct, c_struct);
-            }
-            // vertical neighbor
-            if (y + 1 < height) {
-                int neighbor = (y + 1) * width + x;
-                addSpring(idx, neighbor, k_struct, c_struct);
-            }
-        }
-    }
-
-    // shear: diagonal neighbors
-    for (int y = 0; y < height - 1; y++) {
-        for (int x = 0; x < width - 1; x++) {
-            int p00 = y * width + x;
-            int p10 = y * width + (x + 1);
-            int p01 = (y + 1) * width + x;
-            int p11 = (y + 1) * width + (x + 1);
-
-            addSpring(p00, p11, k_shear, c_shear);
-            addSpring(p10, p01, k_shear, c_shear);
-        }
-    }
-
-    // bend: connect two edges away
-    // (bending springs for cloth wrinkling)
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int idx = y * width + x;
-
-            // horizontal bend
-            if (x + 2 < width) {
-                int neighbor = y * width + (x + 2);
-                addSpring(idx, neighbor, k_bend, c_bend);
-            }
-            // vertical bend
-            if (y + 2 < height) {
-                int neighbor = (y + 2) * width + x;
-                addSpring(idx, neighbor, k_bend, c_bend);
-            }
+            // transform back
+            glm::vec3 newPos= glm::vec3(ellipsoid* xp);
+            X[i]= newPos;
+            X_last[i]= newPos;
         }
     }
 }
 
-void Cloth::addSpring(int i1, int i2, float k, float c)  {
-    glm::vec3 diff = particles[i2].position - particles[i1].position;
-    float length = glm::length(diff);
-    Spring s(i1, i2, length, k, c);
-    springs.push_back(s);
+//------------------------------------
+// Provot dynamic inverse
+//------------------------------------
+void Cloth::applyProvotInverse()
+{
+    for(auto &s: springs){
+        glm::vec3 p1= X[s.p1];
+        glm::vec3 p2= X[s.p2];
+        glm::vec3 dp= p1- p2;
+        float dist= glm::length(dp);
+        if(dist> s.rest_length){
+            float diff= (dist- s.rest_length)*0.5f;
+            dp= glm::normalize(dp)* diff;
+
+            X[s.p1]-= dp;
+            X[s.p2]+= dp;
+        }
+    }
 }
