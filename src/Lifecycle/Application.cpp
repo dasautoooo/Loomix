@@ -39,6 +39,12 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+extern float scrollOffsetY;
+
+static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+	scrollOffsetY += (float)yoffset;
+}
+
 Application::Application(const ApplicationSpecification &applicationSpecification)
     : specification(applicationSpecification) {
     instance = this;
@@ -242,6 +248,8 @@ void Application::init() {
 
     glfwMakeContextCurrent(windowHandle);
     glfwSwapInterval(1); // Enable vsync
+
+	glfwSetScrollCallback(windowHandle, scroll_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD" << std::endl;

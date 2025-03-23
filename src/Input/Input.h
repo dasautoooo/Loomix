@@ -12,4 +12,9 @@ public:
 	static glm::vec2 getMousePosition();
 
 	static void setCursorMode(CursorMode mode);
+
+	static float getScrollOffsetY();
+	static void resetScrollOffsetY();
 };
+
+extern float scrollOffsetY;

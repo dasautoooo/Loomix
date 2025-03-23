@@ -28,3 +28,13 @@ void Input::setCursorMode(CursorMode mode) {
 	GLFWwindow* windowHandle = Application::get().getWindowHandle();
 	glfwSetInputMode(windowHandle, GLFW_CURSOR, GLFW_CURSOR_NORMAL + (int)mode);
 }
+
+float scrollOffsetY = 0.0f;
+
+float Input::getScrollOffsetY() {
+	return scrollOffsetY;
+}
+
+void Input::resetScrollOffsetY() {
+	scrollOffsetY = 0.0f;
+}

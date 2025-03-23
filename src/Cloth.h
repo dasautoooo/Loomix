@@ -5,69 +5,106 @@
 #ifndef CLOTH_H
 #define CLOTH_H
 
+#include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
-#include <cmath>
-#include <algorithm>
-#include <glm/glm.hpp>
 
-// Simple struct for a particle
 struct Particle {
-    glm::vec3 position;
-    glm::vec3 velocity;
-    float mass;
-    bool pinned;
-
-    Particle(const glm::vec3& pos, float m)
-        : position(pos), velocity(0.0f), mass(m), pinned(false) {}
+	glm::vec3 pos;
+	glm::vec3 velocity;
+	glm::vec3 forceAccumulator;
+	float mass;
 };
 
-// Struct for a spring connecting two particles
 struct Spring {
-    int p1, p2;         // indices of the connected particles
-    float restLength;   // rest length (distance at rest)
-    float stiffness;    // Hooke's law constant, k
-    float damping;      // velocity damping factor
+	// The indices of particles
+	int p1, p2;
+	float springConstant;
+	float damperConstant;
+	float currentLength;
+	float restLength;
 
-    Spring(int i1, int i2, float length, float k, float c)
-        : p1(i1), p2(i2), restLength(length), stiffness(k), damping(c) {}
+	enum class SpringType { STRUCTURE, SHEAR, BEND };
+
+	SpringType type;
 };
 
 // The cloth system
 class Cloth {
-public:
-    Cloth(int width, int height, float spacing, float massPerParticle);
+  public:
+	Cloth();
 
-    void pinCorners();
+	Cloth(uint32_t numX, uint32_t numY, float spacing);
 
-    // Update the cloth system by dt (Euler method)
-    void update(float dt, const glm::vec3& gravity);
+	~Cloth() {};
 
-    // Access to particles for rendering
-    const std::vector<Particle>& getParticles() const { return particles; }
+	void init(uint32_t numX, uint32_t numY, float spacing);
 
-    void setStiffness(float k);       // Adjust all spring stiffness
-    void setDamping(float c);         // Adjust all spring damping
+	const std::vector<Particle> &getParticles() const { return particles; };
 
-    int getClothWidth() const;
-    int getClothHeight() const;
+	// Step the cloth simulation by dt
+	void update(float dt);
 
-private:
-    int width, height;
-    float spacing;
+	// Access for changing parameters
+	void setStructureSpringConstant(float ks);
+	void setShearSpringConstant(float ks);
+	void setBendingSpringConstant(float ks);
 
-    std::vector<Particle> particles;
-    std::vector<Spring> springs;
+	void setStructureDamperConstant(float kd);
+	void setShearDamperConstant(float kd);
+	void setBendingDamperConstant(float kd);
 
-    // Initialize particles in a 2D grid
-    void initParticles(float massPerParticle);
+	void setMaxSpeed(float mv) {maxSpeed = mv;};
 
-    // Create springs: structural + shear (+ optionally bend)
-    void createSprings();
+	void setGravity(const glm::vec3 &g) { gravity = g; }
+	void setMass(float m) { mass = m; }
 
-    // Add a spring between i1 and i2
-    void addSpring(int i1, int i2, float k, float c);
+	enum class PinMode {
+		NONE,
+		FOUR_CORNERS,
+		TOP_CORNERS,
+	};
+
+	void pinCorners(PinMode mode);
+
+	uint32_t getClothWidth() const { return numX + 1; }
+	uint32_t getClothHeight() const { return numY + 1; }
+
+  private:
+	// Helper methods
+	void addSpring(int p1Index, int p2Index, Spring::SpringType type);
+
+	std::vector<glm::vec3> computeForces(const std::vector<glm::vec3> &positions,
+	                                     const std::vector<glm::vec3> &velocities);
+	void integrateRK4(float dt);
+	// void integrateVerlet(float dt);
+
+  private:
+	// Grid resolution
+	uint32_t numX, numY;
+	uint32_t totalPoints;
+
+	// Cloth geometry
+	float spacing;
+	float mass; // each node's mass
+	glm::vec3 gravity;
+	float maxSpeed;
+
+	float structureSpringConstant;
+	float shearSpringConstant;
+	float bendingSpringConstant;
+
+	float structureDamperConstant;
+	float shearDamperConstant;
+	float bendingDamperConstant;
+
+	std::vector<bool> pinned;
+
+	// Particles and Springs
+	std::vector<Particle> particles;
+	std::vector<Spring> springs;
+	std::vector<glm::vec3> X; // positions
+	std::vector<glm::vec3> V; // velocities
 };
 
-
-#endif //CLOTH_H
+#endif // CLOTH_H

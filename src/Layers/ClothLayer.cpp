@@ -55,13 +55,37 @@ void ClothLayer::onUIRender() {
         setupCloth();
     }
 
-    // Let user adjust cloth parameters
-    if (ImGui::SliderFloat("Stiffness", &clothStiffness, 10.0f, 1000.0f)) {
-        cloth->setStiffness(clothStiffness);
+	if (ImGui::SliderFloat("Particle Mass", &clothMass, 0.0f, 10.0f, "%.4f")) {
+		cloth->setMass(clothMass);
+	}
+
+	if (ImGui::SliderFloat("Structure Stiffness", &clothStiffness, 0.0f, 150.0f, "%.4f")) {
+		cloth->setStructureSpringConstant(clothStiffness);
+	}
+
+    if (ImGui::SliderFloat("Structure Damping", &clothDamping, 0.0f, 1.0f, "%.4f")) {
+        cloth->setStructureDamperConstant(clothDamping);
     }
-    if (ImGui::SliderFloat("Damping", &clothDamping, 0.0f, 2.0f)) {
-        cloth->setDamping(clothDamping);
-    }
+
+	if (ImGui::SliderFloat("Sheer Stiffness", &shearStiffness, 0.0f, 100.0f, "%.4f")) {
+		cloth->setShearSpringConstant(shearStiffness);
+	}
+
+	if (ImGui::SliderFloat("Sheer Damping", &shearDamping, 0.0f, 1.0f, "%.4f")) {
+		cloth->setShearDamperConstant(shearDamping);
+	}
+
+	if (ImGui::SliderFloat("Bending Stiffness", &bendingStiffness, 0.0f, 50.0f, "%.4f")) {
+		cloth->setBendingSpringConstant(bendingStiffness);
+	}
+
+	if (ImGui::SliderFloat("Bending Damping", &bendingDamping, 0.0f, 1.0f, "%.4f")) {
+		cloth->setBendingDamperConstant(bendingDamping);
+	}
+
+	if (ImGui::SliderFloat("Max Speed Clamping", &maxSpeed, 0.0f, 25.0f, "%.4f")) {
+		cloth->setMaxSpeed(maxSpeed);
+	}
 
     ImGui::End();
 
@@ -100,17 +124,17 @@ void ClothLayer::onUpdate(float ts) {
     handleCameraInput(ts);
 
     // 2) Integrate cloth
-    cloth->update(ts, glm::vec3(0.0f, -9.81f, 0.0f));
+    cloth->update(ts);
 
     // Print positions of each particle
-    const auto& particles = cloth->getParticles();
-    for (size_t i = 0; i < particles.size(); i++) {
-        const auto& p = particles[i];
-        std::cout << "Particle " << i << ": ("
-                  << p.position.x << ", "
-                  << p.position.y << ", "
-                  << p.position.z << ")\n";
-    }
+    // const auto& particles = cloth->getParticles();
+    // for (size_t i = 0; i < particles.size(); i++) {
+    //     const auto& p = particles[i];
+    //     std::cout << "Particle " << i << ": ("
+    //               << p.position.x << ", "
+    //               << p.position.y << ", "
+    //               << p.position.z << ")\n";
+    // }
 
     // 3) Render to the framebuffer
     renderToFramebuffer(ts);
@@ -162,7 +186,8 @@ void ClothLayer::renderToFramebuffer(float ts) {
 
     glEnable(GL_DEPTH_TEST);
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -220,6 +245,12 @@ void ClothLayer::handleCameraInput(float ts) {
         camera->firstMouse = true;
     }
 
+	float scroll = Input::getScrollOffsetY();
+	if (scroll != 0.0f) {
+		camera->processScroll(scroll);
+		Input::resetScrollOffsetY();
+	}
+
     // Keyboard movement if free mode + RMB
     if (camera->rightMouseHeld && camera->mode == CameraMode::FREE) {
         float moveSpeed = camera->movementSpeed * ts;
@@ -231,49 +262,50 @@ void ClothLayer::handleCameraInput(float ts) {
 }
 
 void ClothLayer::drawClothWireframeVBO() {
-    const auto& particles = cloth->getParticles();
-    int clothW = cloth->getClothWidth();
-    int clothH = cloth->getClothHeight();
+	int clothW = cloth->getClothWidth();
+	int clothH = cloth->getClothHeight();
 
-    // Collect vertices for all lines
-    std::vector<glm::vec3> vertices;
+	const auto& parts = cloth->getParticles(); // Each Particle has pos, velocity, etc.
 
-    // Horizontal structural lines
-    for (int y = 0; y < clothH; y++) {
-        for (int x = 0; x < clothW - 1; x++) {
-            int i1 = y * clothW + x;
-            int i2 = y * clothW + (x + 1);
-            vertices.push_back(particles[i1].position);
-            vertices.push_back(particles[i2].position);
-        }
-    }
+	// Collect line vertices from positions
+	std::vector<glm::vec3> vertices;
 
-    // Vertical structural lines
-    for (int y = 0; y < clothH - 1; y++) {
-        for (int x = 0; x < clothW; x++) {
-            int i1 = y * clothW + x;
-            int i2 = (y + 1) * clothW + x;
-            vertices.push_back(particles[i1].position);
-            vertices.push_back(particles[i2].position);
-        }
-    }
+	// Horizontal lines
+	for (int y = 0; y < clothH; y++) {
+		for (int x = 0; x < clothW - 1; x++) {
+			int i1 = y * clothW + x;
+			int i2 = i1 + 1;
+			vertices.push_back(parts[i1].pos);
+			vertices.push_back(parts[i2].pos);
+		}
+	}
 
-    // Shear lines (diagonals)
-    for (int y = 0; y < clothH - 1; y++) {
-        for (int x = 0; x < clothW - 1; x++) {
-            int p00 = y * clothW + x;
-            int p10 = y * clothW + (x + 1);
-            int p01 = (y + 1) * clothW + x;
-            int p11 = (y + 1) * clothW + (x + 1);
+	// Vertical lines
+	for (int y = 0; y < clothH - 1; y++) {
+		for (int x = 0; x < clothW; x++) {
+			int i1 = y * clothW + x;
+			int i2 = (y + 1) * clothW + x;
+			vertices.push_back(parts[i1].pos);
+			vertices.push_back(parts[i2].pos);
+		}
+	}
 
-            // p00 -> p11
-            vertices.push_back(particles[p00].position);
-            vertices.push_back(particles[p11].position);
-            // p10 -> p01
-            vertices.push_back(particles[p10].position);
-            vertices.push_back(particles[p01].position);
-        }
-    }
+	// Shear (diagonals)
+	for (int y = 0; y < clothH - 1; y++) {
+		for (int x = 0; x < clothW - 1; x++) {
+			int p00 = y * clothW + x;
+			int p10 = y * clothW + (x + 1);
+			int p01 = (y + 1) * clothW + x;
+			int p11 = (y + 1) * clothW + (x + 1);
+
+			// p00 -> p11
+			vertices.push_back(parts[p00].pos);
+			vertices.push_back(parts[p11].pos);
+			// p10 -> p01
+			vertices.push_back(parts[p10].pos);
+			vertices.push_back(parts[p01].pos);
+		}
+	}
 
     // Create and bind VAO and VBO
     unsigned int VAO, VBO;
@@ -301,15 +333,15 @@ void ClothLayer::drawClothWireframeVBO() {
 }
 
 void ClothLayer::setupCloth() {
-    // Create the cloth system with default parameters
-    cloth = new Cloth(clothW, clothH, 0.1f, clothMass);
-
-    // Pin corners (optional)
-    cloth->pinCorners();
-
-    // Set initial stiffness/damping
-    cloth->setStiffness(clothStiffness);
-    cloth->setDamping(clothDamping);
+    cloth = new Cloth(clothW, clothH, 0.1f);
+	cloth->setMass(clothMass);
+	cloth->setStructureSpringConstant(clothStiffness);
+	cloth->setStructureDamperConstant(clothDamping);
+	cloth->setShearSpringConstant(shearStiffness);
+	cloth->setShearDamperConstant(shearDamping);
+	cloth->setBendingSpringConstant(bendingStiffness);
+	cloth->setBendingDamperConstant(bendingDamping);
+    cloth->pinCorners(Cloth::PinMode::TOP_CORNERS);
 }
 
 void ClothLayer::cleanupFramebuffer() {

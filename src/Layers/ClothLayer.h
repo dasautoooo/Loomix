@@ -32,11 +32,18 @@ private:
     Cloth* cloth = nullptr;
 
     // Cloth parameters
-    float clothStiffness = 200.0f;
-    float clothDamping   = 0.5f;
+    float clothStiffness = 50.0f;
+    float clothDamping   = 0.3f;
     float clothMass      = 1.0f;
     int   clothW         = 20;  // cloth grid width
     int   clothH         = 20;  // cloth grid height
+
+	float shearStiffness = 30.0f;
+	float shearDamping   = 0.2f;
+	float bendingStiffness = 5.0f;
+	float bendingDamping   = 0.01f;
+
+	float maxSpeed = 10.0f;
 
     Shader* shader = nullptr;
 
