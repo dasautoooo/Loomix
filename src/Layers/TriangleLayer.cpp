@@ -11,7 +11,7 @@
 #include "../Utilities/Timer.h"
 
 TriangleLayer::TriangleLayer() : Layer() {
-    camera = new Camera(CameraMode::ORBIT);
+    camera = new Camera();
     camera->distance = 3.0f;
     camera->yaw = -90.0f;
     camera->pitch = 0.0f;
@@ -109,13 +109,17 @@ void TriangleLayer::handleCameraInput(float ts) {
 
     // 3) Keyboard WASD => camera->processKeyboard()
     // Only move if RMB is held
-    if (camera->rightMouseHeld && camera->mode == CameraMode::FREE) {
-        float moveSpeed = camera->movementSpeed * ts; // scale by delta time
-        if (Input::isKeyDown(KeyCode::W)) { camera->processKeyboard(0, +moveSpeed); } // forward
-        if (Input::isKeyDown(KeyCode::S)) { camera->processKeyboard(0, -moveSpeed); } // backward
-        if (Input::isKeyDown(KeyCode::A)) { camera->processKeyboard(-moveSpeed, 0); } // left
-        if (Input::isKeyDown(KeyCode::D)) { camera->processKeyboard(+moveSpeed, 0); } // right
-    }
+	if (camera->rightMouseHeld) {
+		float moveSpeed = camera->movementSpeed * ts;
+		float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+		if (Input::isKeyDown(KeyCode::W)) dz += moveSpeed;
+		if (Input::isKeyDown(KeyCode::S)) dz -= moveSpeed;
+		if (Input::isKeyDown(KeyCode::A)) dx -= moveSpeed;
+		if (Input::isKeyDown(KeyCode::D)) dx += moveSpeed;
+		if (Input::isKeyDown(KeyCode::E)) dy += moveSpeed;
+		if (Input::isKeyDown(KeyCode::Q)) dy -= moveSpeed;
+		camera->processKeyboard(dx, dy, dz);
+	}
 }
 
 void TriangleLayer::createOrResizeFBO(int width, int height) {

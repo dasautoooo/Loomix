@@ -10,14 +10,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-enum class CameraMode {
-    ORBIT,  // Camera orbits around a target point
-    FREE    // Free-fly camera
-};
-
 class Camera {
 public:
-    CameraMode mode;
     glm::vec3 position;
     glm::vec3 target;
     glm::vec3 up;
@@ -29,10 +23,10 @@ public:
     bool rightMouseHeld;
     float lastX, lastY;
 
-    Camera(CameraMode mode = CameraMode::ORBIT);
+    Camera();
 
     glm::mat4 getViewMatrix() const;
-    void processKeyboard(float deltaX, float deltaY);
+    void processKeyboard(float deltaX, float deltaY, float deltaZ);
     void processMouse(float xoffset, float yoffset);
     void processScroll(float yoffset);
     void setRightMouseHeld(bool isHeld);

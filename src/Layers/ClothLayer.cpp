@@ -10,7 +10,7 @@
 
 ClothLayer::ClothLayer(){
     // Camera
-    camera = new Camera(CameraMode::ORBIT);
+    camera = new Camera();
     camera->distance = 10.0f;
     camera->yaw = 45.0f;
     camera->pitch = 45.0f;
@@ -252,12 +252,16 @@ void ClothLayer::handleCameraInput(float ts) {
 	}
 
     // Keyboard movement if free mode + RMB
-    if (camera->rightMouseHeld && camera->mode == CameraMode::FREE) {
+    if (camera->rightMouseHeld) {
         float moveSpeed = camera->movementSpeed * ts;
-        if (Input::isKeyDown(KeyCode::W)) camera->processKeyboard(0, +moveSpeed);
-        if (Input::isKeyDown(KeyCode::S)) camera->processKeyboard(0, -moveSpeed);
-        if (Input::isKeyDown(KeyCode::A)) camera->processKeyboard(-moveSpeed, 0);
-        if (Input::isKeyDown(KeyCode::D)) camera->processKeyboard(+moveSpeed, 0);
+    	float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+    	if (Input::isKeyDown(KeyCode::W)) dz += moveSpeed;
+    	if (Input::isKeyDown(KeyCode::S)) dz -= moveSpeed;
+    	if (Input::isKeyDown(KeyCode::A)) dx -= moveSpeed;
+    	if (Input::isKeyDown(KeyCode::D)) dx += moveSpeed;
+    	if (Input::isKeyDown(KeyCode::E)) dy += moveSpeed;
+    	if (Input::isKeyDown(KeyCode::Q)) dy -= moveSpeed;
+    	camera->processKeyboard(dx, dy, dz);
     }
 }
 
