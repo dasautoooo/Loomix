@@ -17,8 +17,8 @@ struct GLFWwindow;
 
 struct ApplicationSpecification {
     std::string name = "Loomix - Cloth Simulation";
-    uint32_t width = 1600;
-    uint32_t height = 900;
+    uint32_t width = 1920;
+    uint32_t height = 1080;
 };
 
 class Application {

@@ -32,20 +32,25 @@ private:
     Cloth* cloth = nullptr;
 
     // Cloth parameters
-    float clothStiffness = 50.0f;
-    float clothDamping   = 0.3f;
+    float clothStiffness = 3.0f;
+    float clothDamping   = 0.02f;
     float clothMass      = 1.0f;
     int   clothW         = 20;  // cloth grid width
     int   clothH         = 20;  // cloth grid height
 
-	float shearStiffness = 30.0f;
-	float shearDamping   = 0.2f;
-	float bendingStiffness = 5.0f;
-	float bendingDamping   = 0.01f;
+	float shearStiffness = 1.0f;
+	float shearDamping   = 0.01f;
+	float bendingStiffness = 0.5f;
+	float bendingDamping   = 0.005f;
 
 	float maxSpeed = 10.0f;
 
+	int selectedPinMode = static_cast<int>(Cloth::PinMode::TOP_CORNERS);
+	Cloth::PinMode pinMode = Cloth::PinMode::TOP_CORNERS;
+
     Shader* shader = nullptr;
+
+	bool wireframe = false;
 
 private:
     void createOrResizeFBO(int width, int height);

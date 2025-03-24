@@ -11,7 +11,7 @@
 ClothLayer::ClothLayer(){
     // Camera
     camera = new Camera();
-    camera->distance = 10.0f;
+    camera->distance = 5.0f;
     camera->yaw = 45.0f;
     camera->pitch = 45.0f;
     camera->fov = 45.0f;
@@ -59,32 +59,40 @@ void ClothLayer::onUIRender() {
 		cloth->setMass(clothMass);
 	}
 
-	if (ImGui::SliderFloat("Structure Stiffness", &clothStiffness, 0.0f, 150.0f, "%.4f")) {
+	if (ImGui::SliderFloat("Structure Stiffness", &clothStiffness, 0.0f, 5.0f, "%.4f")) {
 		cloth->setStructureSpringConstant(clothStiffness);
 	}
 
-    if (ImGui::SliderFloat("Structure Damping", &clothDamping, 0.0f, 1.0f, "%.4f")) {
+    if (ImGui::SliderFloat("Structure Damping", &clothDamping, 0.0f, 2.0f, "%.4f")) {
         cloth->setStructureDamperConstant(clothDamping);
     }
 
-	if (ImGui::SliderFloat("Sheer Stiffness", &shearStiffness, 0.0f, 100.0f, "%.4f")) {
+	if (ImGui::SliderFloat("Sheer Stiffness", &shearStiffness, 0.0f, 5.0f, "%.4f")) {
 		cloth->setShearSpringConstant(shearStiffness);
 	}
 
-	if (ImGui::SliderFloat("Sheer Damping", &shearDamping, 0.0f, 1.0f, "%.4f")) {
+	if (ImGui::SliderFloat("Sheer Damping", &shearDamping, 0.0f, 2.0f, "%.4f")) {
 		cloth->setShearDamperConstant(shearDamping);
 	}
 
-	if (ImGui::SliderFloat("Bending Stiffness", &bendingStiffness, 0.0f, 50.0f, "%.4f")) {
+	if (ImGui::SliderFloat("Bending Stiffness", &bendingStiffness, 0.0f, 5.0f, "%.4f")) {
 		cloth->setBendingSpringConstant(bendingStiffness);
 	}
 
-	if (ImGui::SliderFloat("Bending Damping", &bendingDamping, 0.0f, 1.0f, "%.4f")) {
+	if (ImGui::SliderFloat("Bending Damping", &bendingDamping, 0.0f, 2.0f, "%.4f")) {
 		cloth->setBendingDamperConstant(bendingDamping);
 	}
 
 	if (ImGui::SliderFloat("Max Speed Clamping", &maxSpeed, 0.0f, 25.0f, "%.4f")) {
 		cloth->setMaxSpeed(maxSpeed);
+	}
+
+	ImGui::Checkbox("Wireframe", &wireframe);
+
+	const char* pinModes[] = { "None", "Four Corners", "Top Corners" };
+	if (ImGui::Combo("Pin Mode", &selectedPinMode, pinModes, IM_ARRAYSIZE(pinModes))) {
+		pinMode = static_cast<Cloth::PinMode>(selectedPinMode);
+		cloth->pinCorners(pinMode);
 	}
 
     ImGui::End();
@@ -185,9 +193,9 @@ void ClothLayer::renderToFramebuffer(float ts) {
     glViewport(0, 0, viewportWidth, viewportHeight);
 
     glEnable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
 
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -274,27 +282,6 @@ void ClothLayer::drawClothWireframeVBO() {
 	// Collect line vertices from positions
 	std::vector<glm::vec3> vertices;
 
-	// Horizontal lines
-	for (int y = 0; y < clothH; y++) {
-		for (int x = 0; x < clothW - 1; x++) {
-			int i1 = y * clothW + x;
-			int i2 = i1 + 1;
-			vertices.push_back(parts[i1].pos);
-			vertices.push_back(parts[i2].pos);
-		}
-	}
-
-	// Vertical lines
-	for (int y = 0; y < clothH - 1; y++) {
-		for (int x = 0; x < clothW; x++) {
-			int i1 = y * clothW + x;
-			int i2 = (y + 1) * clothW + x;
-			vertices.push_back(parts[i1].pos);
-			vertices.push_back(parts[i2].pos);
-		}
-	}
-
-	// Shear (diagonals)
 	for (int y = 0; y < clothH - 1; y++) {
 		for (int x = 0; x < clothW - 1; x++) {
 			int p00 = y * clothW + x;
@@ -302,11 +289,14 @@ void ClothLayer::drawClothWireframeVBO() {
 			int p01 = (y + 1) * clothW + x;
 			int p11 = (y + 1) * clothW + (x + 1);
 
-			// p00 -> p11
+			// First triangle
+			vertices.push_back(parts[p00].pos);
+			vertices.push_back(parts[p10].pos);
+			vertices.push_back(parts[p11].pos);
+
+			// Second triangle
 			vertices.push_back(parts[p00].pos);
 			vertices.push_back(parts[p11].pos);
-			// p10 -> p01
-			vertices.push_back(parts[p10].pos);
 			vertices.push_back(parts[p01].pos);
 		}
 	}
@@ -326,7 +316,7 @@ void ClothLayer::drawClothWireframeVBO() {
     glEnableVertexAttribArray(0);
 
     // Draw lines
-    glDrawArrays(GL_LINES, 0, vertices.size());
+    glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 
     // Cleanup: unbind and delete buffers (or keep them for reuse)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -345,7 +335,7 @@ void ClothLayer::setupCloth() {
 	cloth->setShearDamperConstant(shearDamping);
 	cloth->setBendingSpringConstant(bendingStiffness);
 	cloth->setBendingDamperConstant(bendingDamping);
-    cloth->pinCorners(Cloth::PinMode::TOP_CORNERS);
+    cloth->pinCorners(pinMode);
 }
 
 void ClothLayer::cleanupFramebuffer() {
