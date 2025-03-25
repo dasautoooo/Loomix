@@ -295,7 +295,7 @@ std::vector<glm::vec3> Cloth::computeForces(const std::vector<glm::vec3> &positi
 			continue;
 		}
 		// add m*g
-		forceAccumulators[i] += particles[i].mass * gravity;
+		forceAccumulators[i] += mass * gravity;
 	}
 
 	// 3) Spring forces (STRUCTURE, SHEAR, BEND all stored in springs)
