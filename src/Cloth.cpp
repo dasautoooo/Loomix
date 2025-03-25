@@ -186,7 +186,7 @@ void Cloth::update(float dt) {
 	// 3) call integrator->integrate
 	auto [Xout, Vout] = integrator->integrate(X, V, dt, mass, pinned, forceFunc);
 
-	// 4) velocity clamp or collisions if you want
+	// 4) velocity clamp
 	velocityClamp(Vout);
 
 	// 5) store them back
