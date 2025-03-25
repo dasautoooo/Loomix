@@ -20,7 +20,8 @@ glm::mat4 Camera::getViewMatrix() const {
 }
 
 void Camera::processKeyboard(float deltaX, float deltaY, float deltaZ) {
-	if (!rightMouseHeld) return;
+	if (!rightMouseHeld)
+		return;
 
 	// Calculate current camera forward and right directions
 	float yawRad = glm::radians(yaw);

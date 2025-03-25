@@ -7,18 +7,17 @@
 
 #include "Application.h"
 
-extern Application* createApplication(int argc, char** argv);
+extern Application *createApplication(int argc, char **argv);
 bool applicationRunning = true;
 
-int main(int argc, char** argv) {
-    while (applicationRunning) {
-        Application* app = createApplication(argc, argv);
-        app->run();
-        delete app;
-    }
+int main(int argc, char **argv) {
+	while (applicationRunning) {
+		Application *app = createApplication(argc, argv);
+		app->run();
+		delete app;
+	}
 
-    return 0;
+	return 0;
 }
 
-
-#endif //ENTRYPOINT_H
+#endif // ENTRYPOINT_H

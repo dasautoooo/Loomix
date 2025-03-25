@@ -6,14 +6,14 @@
 #define LAYER_H
 
 class Layer {
-public:
-    virtual ~Layer() = default;
+  public:
+	virtual ~Layer() = default;
 
-    virtual void onAttach() {}
-    virtual void onDetach() {}
+	virtual void onAttach() {}
+	virtual void onDetach() {}
 
-    virtual void onUpdate(float ts) {}
-    virtual void onUIRender() {}
+	virtual void onUpdate(float ts) {}
+	virtual void onUIRender() {}
 };
 
-#endif //LAYER_H
+#endif // LAYER_H

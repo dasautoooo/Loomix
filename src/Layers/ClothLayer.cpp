@@ -4,56 +4,57 @@
 
 #include "ClothLayer.h"
 
-#include "../Utilities/Timer.h"
 #include "../Input/Input.h"
+#include "../RK4Integrator.h"
+#include "../Utilities/Timer.h"
 #include "imgui.h"
 
-ClothLayer::ClothLayer(){
-    // Camera
-    camera = new Camera();
-    camera->distance = 5.0f;
-    camera->yaw = 45.0f;
-    camera->pitch = 45.0f;
-    camera->fov = 45.0f;
-    camera->movementSpeed = 5.0f;
-    camera->sensitivity = 0.1f;
+ClothLayer::ClothLayer() {
+	// Camera
+	camera = new Camera();
+	camera->distance = 5.0f;
+	camera->yaw = 45.0f;
+	camera->pitch = 45.0f;
+	camera->fov = 45.0f;
+	camera->movementSpeed = 5.0f;
+	camera->sensitivity = 0.1f;
 
-    // Create cloth
-    setupCloth(); // initialize cloth system
+	// Create cloth
+	setupCloth(); // initialize cloth system
 
-    shader = new Shader("simple.vert", "simple.frag");
+	shader = new Shader("simple.vert", "simple.frag");
 }
 
-ClothLayer::~ClothLayer(){
-    // Cleanup cloth
-    delete cloth;
-    cloth = nullptr;
+ClothLayer::~ClothLayer() {
+	// Cleanup cloth
+	delete cloth;
+	cloth = nullptr;
 
-    // Cleanup FBO
-    cleanupFramebuffer();
+	// Cleanup FBO
+	cleanupFramebuffer();
 
-    // Cleanup shader
-    shader->deleteShader();
-    delete shader;
-    shader = nullptr;
+	// Cleanup shader
+	shader->deleteShader();
+	delete shader;
+	shader = nullptr;
 
-    // Cleanup camera
-    delete camera;
-    camera = nullptr;
+	// Cleanup camera
+	delete camera;
+	camera = nullptr;
 }
 
 void ClothLayer::onUIRender() {
-    // Settings panel
-    ImGui::Begin("Settings");
-    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-    ImGui::Text("Last render: %.3fms", lastRenderTime);
-    ImGui::Text("Timestep: %.4f s", 1.0f / ImGui::GetIO().Framerate);
+	// Settings panel
+	ImGui::Begin("Settings");
+	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+	ImGui::Text("Last render: %.3fms", lastRenderTime);
+	ImGui::Text("Timestep: %.4f s", 1.0f / ImGui::GetIO().Framerate);
 
-    // Add a reset button
-    if (ImGui::Button("Reset Cloth")) {
-        delete cloth;
-        setupCloth();
-    }
+	// Add a reset button
+	if (ImGui::Button("Reset Cloth")) {
+		delete cloth;
+		setupCloth();
+	}
 
 	if (ImGui::SliderFloat("Particle Mass", &clothMass, 0.0f, 10.0f, "%.4f")) {
 		cloth->setMass(clothMass);
@@ -63,9 +64,9 @@ void ClothLayer::onUIRender() {
 		cloth->setStructureSpringConstant(clothStiffness);
 	}
 
-    if (ImGui::SliderFloat("Structure Damping", &clothDamping, 0.0f, 2.0f, "%.4f")) {
-        cloth->setStructureDamperConstant(clothDamping);
-    }
+	if (ImGui::SliderFloat("Structure Damping", &clothDamping, 0.0f, 2.0f, "%.4f")) {
+		cloth->setStructureDamperConstant(clothDamping);
+	}
 
 	if (ImGui::SliderFloat("Sheer Stiffness", &shearStiffness, 0.0f, 5.0f, "%.4f")) {
 		cloth->setShearSpringConstant(shearStiffness);
@@ -89,169 +90,162 @@ void ClothLayer::onUIRender() {
 
 	ImGui::Checkbox("Wireframe", &wireframe);
 
-	const char* pinModes[] = { "None", "Four Corners", "Top Corners" };
+	const char *pinModes[] = {"None", "Four Corners", "Top Corners"};
 	if (ImGui::Combo("Pin Mode", &selectedPinMode, pinModes, IM_ARRAYSIZE(pinModes))) {
 		pinMode = static_cast<Cloth::PinMode>(selectedPinMode);
 		cloth->pinCorners(pinMode);
 	}
 
-    ImGui::End();
+	ImGui::End();
 
-    // Viewport
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("Viewport");
+	// Viewport
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::Begin("Viewport");
 
-    viewportWidth  = (uint32_t)ImGui::GetContentRegionAvail().x;
-    viewportHeight = (uint32_t)ImGui::GetContentRegionAvail().y;
+	viewportWidth = (uint32_t)ImGui::GetContentRegionAvail().x;
+	viewportHeight = (uint32_t)ImGui::GetContentRegionAvail().y;
 
-    // If size changed and is nonzero, create/resize FBO
-    if ((viewportWidth != lastViewportWidth || viewportHeight != lastViewportHeight) &&
-        (viewportWidth > 0 && viewportHeight > 0))
-    {
-        createOrResizeFBO(viewportWidth, viewportHeight);
-        lastViewportWidth  = viewportWidth;
-        lastViewportHeight = viewportHeight;
-    }
+	// If size changed and is nonzero, create/resize FBO
+	if ((viewportWidth != lastViewportWidth || viewportHeight != lastViewportHeight) &&
+	    (viewportWidth > 0 && viewportHeight > 0)) {
+		createOrResizeFBO(viewportWidth, viewportHeight);
+		lastViewportWidth = viewportWidth;
+		lastViewportHeight = viewportHeight;
+	}
 
-    // Display framebuffer texture inside ImGui
-    ImGui::Image(
-        (ImTextureID)(intptr_t)framebufferTexture,
-        ImVec2((float)viewportWidth, (float)viewportHeight),
-        ImVec2(0, 1),
-        ImVec2(1, 0)
-    );
+	// Display framebuffer texture inside ImGui
+	ImGui::Image((ImTextureID)(intptr_t)framebufferTexture,
+	             ImVec2((float)viewportWidth, (float)viewportHeight), ImVec2(0, 1), ImVec2(1, 0));
 
-    ImGui::End();
-    ImGui::PopStyleVar();
+	ImGui::End();
+	ImGui::PopStyleVar();
 }
 
 void ClothLayer::onUpdate(float ts) {
-    Timer timer;
+	Timer timer;
 
-    // 1) Handle camera input
-    handleCameraInput(ts);
+	// 1) Handle camera input
+	handleCameraInput(ts);
 
-    // 2) Integrate cloth
-    cloth->update(ts);
+	// 2) Integrate cloth
+	cloth->update(ts);
 
-    // Print positions of each particle
-    // const auto& particles = cloth->getParticles();
-    // for (size_t i = 0; i < particles.size(); i++) {
-    //     const auto& p = particles[i];
-    //     std::cout << "Particle " << i << ": ("
-    //               << p.position.x << ", "
-    //               << p.position.y << ", "
-    //               << p.position.z << ")\n";
-    // }
+	// Print positions of each particle
+	// const auto& particles = cloth->getParticles();
+	// for (size_t i = 0; i < particles.size(); i++) {
+	//     const auto& p = particles[i];
+	//     std::cout << "Particle " << i << ": ("
+	//               << p.position.x << ", "
+	//               << p.position.y << ", "
+	//               << p.position.z << ")\n";
+	// }
 
-    // 3) Render to the framebuffer
-    renderToFramebuffer(ts);
+	// 3) Render to the framebuffer
+	renderToFramebuffer(ts);
 
-    lastRenderTime = timer.elapsedMillis();
+	lastRenderTime = timer.elapsedMillis();
 }
 
 void ClothLayer::createOrResizeFBO(int width, int height) {
-    // If we already have an FBO, reuse it; otherwise create a new one
-    if (framebuffer == 0) {
-        glGenFramebuffers(1, &framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	// If we already have an FBO, reuse it; otherwise create a new one
+	if (framebuffer == 0) {
+		glGenFramebuffers(1, &framebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
-        glGenTextures(1, &framebufferTexture);
-        glBindTexture(GL_TEXTURE_2D, framebufferTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glGenTextures(1, &framebufferTexture);
+		glBindTexture(GL_TEXTURE_2D, framebufferTexture);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glGenRenderbuffers(1, &rbo);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    } else {
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glBindTexture(GL_TEXTURE_2D, framebufferTexture);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    }
+		glGenRenderbuffers(1, &rbo);
+		glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	} else {
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		glBindTexture(GL_TEXTURE_2D, framebufferTexture);
+		glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	}
 
-    // Allocate color texture
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height,
-                 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTexture, 0);
+	// Allocate color texture
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTexture,
+	                       0);
 
-    // Depth-stencil
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+	// Depth-stencil
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
-    auto fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
-        std::cerr << "ERROR: FBO incomplete, status: " << fboStatus << std::endl;
-    }
+	auto fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
+		std::cerr << "ERROR: FBO incomplete, status: " << fboStatus << std::endl;
+	}
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void ClothLayer::renderToFramebuffer(float ts) {
-    if (viewportWidth == 0 || viewportHeight == 0) return;
+	if (viewportWidth == 0 || viewportHeight == 0)
+		return;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glViewport(0, 0, viewportWidth, viewportHeight);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glViewport(0, 0, viewportWidth, viewportHeight);
 
-    glEnable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
 
-    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+	glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Setup camera & projection
-    glm::mat4 model = glm::mat4(1.0f);
-    glm::mat4 view = camera->getViewMatrix();
-    glm::mat4 projection = glm::perspective(
-        glm::radians(camera->fov),
-        (float)viewportWidth / (float)viewportHeight,
-        0.1f, 100.0f
-    );
+	// Setup camera & projection
+	glm::mat4 model = glm::mat4(1.0f);
+	glm::mat4 view = camera->getViewMatrix();
+	glm::mat4 projection = glm::perspective(
+	    glm::radians(camera->fov), (float)viewportWidth / (float)viewportHeight, 0.1f, 100.0f);
 
-    // Use simple shader
-    shader->use();
-    shader->setMat4("uModel", model);
-    shader->setMat4("uView", view);
-    shader->setMat4("uProjection", projection);
+	// Use simple shader
+	shader->use();
+	shader->setMat4("uModel", model);
+	shader->setMat4("uView", view);
+	shader->setMat4("uProjection", projection);
 
-    // Draw cloth as wireframe
-    drawClothWireframeVBO();
+	// Draw cloth as wireframe
+	drawClothWireframeVBO();
 
-    // Revert polygon mode if you want
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	// Revert polygon mode if you want
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void ClothLayer::handleCameraInput(float ts) {
-    // Right-mouse => camera->rightMouseHeld
-    if (Input::isMouseButtonDown(MouseButton::Right)) {
-        camera->setRightMouseHeld(true);
-        Input::setCursorMode(CursorMode::Locked);
-    } else {
-        camera->setRightMouseHeld(false);
-        Input::setCursorMode(CursorMode::Normal);
-    }
+	// Right-mouse => camera->rightMouseHeld
+	if (Input::isMouseButtonDown(MouseButton::Right)) {
+		camera->setRightMouseHeld(true);
+		Input::setCursorMode(CursorMode::Locked);
+	} else {
+		camera->setRightMouseHeld(false);
+		Input::setCursorMode(CursorMode::Normal);
+	}
 
-    // Mouse Movement => camera->processMouse() if RMB is held
-    if (camera->rightMouseHeld) {
-        glm::vec2 mousePos = Input::getMousePosition();
-        if (camera->firstMouse) {
-            camera->lastX = mousePos.x;
-            camera->lastY = mousePos.y;
-            camera->firstMouse = false;
-        }
-        float xoffset = mousePos.x - camera->lastX;
-        float yoffset = camera->lastY - mousePos.y;
+	// Mouse Movement => camera->processMouse() if RMB is held
+	if (camera->rightMouseHeld) {
+		glm::vec2 mousePos = Input::getMousePosition();
+		if (camera->firstMouse) {
+			camera->lastX = mousePos.x;
+			camera->lastY = mousePos.y;
+			camera->firstMouse = false;
+		}
+		float xoffset = mousePos.x - camera->lastX;
+		float yoffset = camera->lastY - mousePos.y;
 
-        camera->lastX = mousePos.x;
-        camera->lastY = mousePos.y;
+		camera->lastX = mousePos.x;
+		camera->lastY = mousePos.y;
 
-        camera->processMouse(xoffset, yoffset);
-    } else {
-        camera->firstMouse = true;
-    }
+		camera->processMouse(xoffset, yoffset);
+	} else {
+		camera->firstMouse = true;
+	}
 
 	float scroll = Input::getScrollOffsetY();
 	if (scroll != 0.0f) {
@@ -259,25 +253,31 @@ void ClothLayer::handleCameraInput(float ts) {
 		Input::resetScrollOffsetY();
 	}
 
-    // Keyboard movement if free mode + RMB
-    if (camera->rightMouseHeld) {
-        float moveSpeed = camera->movementSpeed * ts;
-    	float dx = 0.0f, dy = 0.0f, dz = 0.0f;
-    	if (Input::isKeyDown(KeyCode::W)) dz += moveSpeed;
-    	if (Input::isKeyDown(KeyCode::S)) dz -= moveSpeed;
-    	if (Input::isKeyDown(KeyCode::A)) dx -= moveSpeed;
-    	if (Input::isKeyDown(KeyCode::D)) dx += moveSpeed;
-    	if (Input::isKeyDown(KeyCode::E)) dy += moveSpeed;
-    	if (Input::isKeyDown(KeyCode::Q)) dy -= moveSpeed;
-    	camera->processKeyboard(dx, dy, dz);
-    }
+	// Keyboard movement if free mode + RMB
+	if (camera->rightMouseHeld) {
+		float moveSpeed = camera->movementSpeed * ts;
+		float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+		if (Input::isKeyDown(KeyCode::W))
+			dz += moveSpeed;
+		if (Input::isKeyDown(KeyCode::S))
+			dz -= moveSpeed;
+		if (Input::isKeyDown(KeyCode::A))
+			dx -= moveSpeed;
+		if (Input::isKeyDown(KeyCode::D))
+			dx += moveSpeed;
+		if (Input::isKeyDown(KeyCode::E))
+			dy += moveSpeed;
+		if (Input::isKeyDown(KeyCode::Q))
+			dy -= moveSpeed;
+		camera->processKeyboard(dx, dy, dz);
+	}
 }
 
 void ClothLayer::drawClothWireframeVBO() {
 	int clothW = cloth->getClothWidth();
 	int clothH = cloth->getClothHeight();
 
-	const auto& parts = cloth->getParticles(); // Each Particle has pos, velocity, etc.
+	const auto &parts = cloth->getParticles(); // Each Particle has pos, velocity, etc.
 
 	// Collect line vertices from positions
 	std::vector<glm::vec3> vertices;
@@ -301,33 +301,34 @@ void ClothLayer::drawClothWireframeVBO() {
 		}
 	}
 
-    // Create and bind VAO and VBO
-    unsigned int VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
+	// Create and bind VAO and VBO
+	unsigned int VAO, VBO;
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
 
-    glBindVertexArray(VAO);
+	glBindVertexArray(VAO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(),
+	             GL_DYNAMIC_DRAW);
 
-    // Assume the vertex shader uses location 0 for position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(0);
+	// Assume the vertex shader uses location 0 for position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
+	glEnableVertexAttribArray(0);
 
-    // Draw lines
-    glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+	// Draw lines
+	glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 
-    // Cleanup: unbind and delete buffers (or keep them for reuse)
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+	// Cleanup: unbind and delete buffers (or keep them for reuse)
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
+	glDeleteVertexArrays(1, &VAO);
 }
 
 void ClothLayer::setupCloth() {
-    cloth = new Cloth(clothW, clothH, 0.1f);
+	cloth = new Cloth(clothW, clothH, 0.1f);
 	cloth->setMass(clothMass);
 	cloth->setStructureSpringConstant(clothStiffness);
 	cloth->setStructureDamperConstant(clothDamping);
@@ -335,15 +336,15 @@ void ClothLayer::setupCloth() {
 	cloth->setShearDamperConstant(shearDamping);
 	cloth->setBendingSpringConstant(bendingStiffness);
 	cloth->setBendingDamperConstant(bendingDamping);
-    cloth->pinCorners(pinMode);
+	cloth->pinCorners(pinMode);
+	cloth->setIntegrator(std::make_unique<RK4Integrator>());
 }
 
 void ClothLayer::cleanupFramebuffer() {
-    glDeleteFramebuffers(1, &framebuffer);
-    glDeleteTextures(1, &framebufferTexture);
-    glDeleteRenderbuffers(1, &rbo);
-    framebuffer = 0;
-    framebufferTexture = 0;
-    rbo = 0;
+	glDeleteFramebuffers(1, &framebuffer);
+	glDeleteTextures(1, &framebufferTexture);
+	glDeleteRenderbuffers(1, &rbo);
+	framebuffer = 0;
+	framebufferTexture = 0;
+	rbo = 0;
 }
-

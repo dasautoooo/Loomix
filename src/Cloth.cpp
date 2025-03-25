@@ -166,7 +166,37 @@ void Cloth::addSpring(int p1Index, int p2Index, Spring::SpringType type) {
 //------------------------------------
 // Update cloth by dt
 //------------------------------------
-void Cloth::update(float dt) { integrateRK4(dt); }
+void Cloth::update(float dt) {
+	if (!integrator)
+		return; // if no integrator set, skip
+
+	// 1) build local arrays X, V
+	std::vector<glm::vec3> X(particles.size()), V(particles.size());
+	for (size_t i = 0; i < particles.size(); i++) {
+		X[i] = particles[i].pos;
+		V[i] = particles[i].velocity;
+	}
+
+	// 2) define a lambda for computeForces
+	auto forceFunc = [this](const std::vector<glm::vec3> &Xarr,
+	                        const std::vector<glm::vec3> &Varr) -> std::vector<glm::vec3> {
+		return this->computeForces(Xarr, Varr);
+	};
+
+	// 3) call integrator->integrate
+	auto [Xout, Vout] = integrator->integrate(X, V, dt, mass, pinned, forceFunc);
+
+	// 4) velocity clamp or collisions if you want
+	velocityClamp(Vout);
+
+	// 5) store them back
+	for (size_t i = 0; i < particles.size(); i++) {
+		if (!pinned[i]) {
+			particles[i].pos = Xout[i];
+			particles[i].velocity = Vout[i];
+		}
+	}
+}
 
 void Cloth::setStructureSpringConstant(float ks) {
 	structureSpringConstant = ks;
@@ -303,100 +333,109 @@ std::vector<glm::vec3> Cloth::computeForces(const std::vector<glm::vec3> &positi
 	return forceAccumulators;
 }
 
-void Cloth::integrateRK4(float dt) {
-	// Gather X, V from particles
-	for (size_t i = 0; i < particles.size(); i++) {
-		X[i] = particles[i].pos;
-		V[i] = particles[i].velocity;
-	}
-
-	// Define temporary arrays for the four derivative stages
-	std::vector<glm::vec3> k1x(X.size()), k1v(X.size());
-	std::vector<glm::vec3> k2x(X.size()), k2v(X.size());
-	std::vector<glm::vec3> k3x(X.size()), k3v(X.size());
-	std::vector<glm::vec3> k4x(X.size()), k4v(X.size());
-
-	std::vector<glm::vec3> Ftemp;
-
-	// ---- k1
-	// derivative at the start
-	// dx/dt = V, dv/dt = a = F/m
-	// 1) compute forces with current X, V
-	Ftemp = computeForces(X, V);
-	for (size_t i = 0; i < X.size(); i++) {
-		k1x[i] = V[i];            // derivative of X is velocity
-		k1v[i] = Ftemp[i] / mass; // derivative of V is acceleration
-	}
-
-	// ---- k2
-	// Evaluate derivative at the midpoint (X + dt/2*k1x, V + dt/2*k1v)
-	std::vector<glm::vec3> X2(X.size()), V2(X.size());
-	for (size_t i = 0; i < X.size(); i++) {
-		X2[i] = X[i] + 0.5f * dt * k1x[i];
-		V2[i] = V[i] + 0.5f * dt * k1v[i];
-	}
-	Ftemp = computeForces(X2, V2);
-	for (size_t i = 0; i < X.size(); i++) {
-		k2x[i] = V2[i];
-		k2v[i] = Ftemp[i] / mass;
-	}
-
-	// ---- k3
-	// another midpoint with k2
-	for (size_t i = 0; i < X.size(); i++) {
-		X2[i] = X[i] + 0.5f * dt * k2x[i];
-		V2[i] = V[i] + 0.5f * dt * k2v[i];
-	}
-	Ftemp = computeForces(X2, V2);
-	for (size_t i = 0; i < X.size(); i++) {
-		k3x[i] = V2[i];
-		k3v[i] = Ftemp[i] / mass;
-	}
-
-	// ---- k4
-	// derivative at the end of the interval (X + dt*k3x, V + dt*k3v)
-	std::vector<glm::vec3> X4(X.size()), V4(X.size());
-	for (size_t i = 0; i < X.size(); i++) {
-		X4[i] = X[i] + dt * k3x[i];
-		V4[i] = V[i] + dt * k3v[i];
-	}
-	Ftemp = computeForces(X4, V4);
-	for (size_t i = 0; i < X.size(); i++) {
-		k4x[i] = V4[i];
-		k4v[i] = Ftemp[i] / mass;
-	}
-
-	// Now combine them:
-	// X_{n+1} = X_n + dt/6 ( k1x + 2k2x + 2k3x + k4x )
-	// V_{n+1} = V_n + dt/6 ( k1v + 2k2v + 2k3v + k4v )
-	for (size_t i = 0; i < X.size(); i++) {
-		glm::vec3 dx = (k1x[i] + 2.f * k2x[i] + 2.f * k3x[i] + k4x[i]) * (dt / 6.f);
-		glm::vec3 dv = (k1v[i] + 2.f * k2v[i] + 2.f * k3v[i] + k4v[i]) * (dt / 6.f);
-
-		X[i] += dx;
-		V[i] += dv;
-
-		// e.g. floor collision
-		// if (X[i].y < 0.f) {
-		//     X[i].y = 0.f;
-		//     V[i].y = 0.f; // zero vertical velocity if you want inelastic collisions
-		// }
-	}
-
-	// Velocity clamping
+void Cloth::velocityClamp(std::vector<glm::vec3> &velocities) {
 	for (size_t i = 0; i < V.size(); i++) {
-		float speed = glm::length(V[i]);
+		float speed = glm::length(velocities[i]);
 		if (speed > maxSpeed) {
-			V[i] *= (maxSpeed / speed);
+			velocities[i] *= (maxSpeed / speed);
 		}
 	}
-
-	// Put them back into the cloth’s Particle array
-	for (size_t i = 0; i < particles.size(); i++) {
-		particles[i].pos = X[i];
-		particles[i].velocity = V[i];
-	}
 }
+//
+// void Cloth::integrateRK4(float dt) {
+// 	// Gather X, V from particles
+// 	for (size_t i = 0; i < particles.size(); i++) {
+// 		X[i] = particles[i].pos;
+// 		V[i] = particles[i].velocity;
+// 	}
+//
+// 	// Define temporary arrays for the four derivative stages
+// 	std::vector<glm::vec3> k1x(X.size()), k1v(X.size());
+// 	std::vector<glm::vec3> k2x(X.size()), k2v(X.size());
+// 	std::vector<glm::vec3> k3x(X.size()), k3v(X.size());
+// 	std::vector<glm::vec3> k4x(X.size()), k4v(X.size());
+//
+// 	std::vector<glm::vec3> Ftemp;
+//
+// 	// ---- k1
+// 	// derivative at the start
+// 	// dx/dt = V, dv/dt = a = F/m
+// 	// 1) compute forces with current X, V
+// 	Ftemp = computeForces(X, V);
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		k1x[i] = V[i];            // derivative of X is velocity
+// 		k1v[i] = Ftemp[i] / mass; // derivative of V is acceleration
+// 	}
+//
+// 	// ---- k2
+// 	// Evaluate derivative at the midpoint (X + dt/2*k1x, V + dt/2*k1v)
+// 	std::vector<glm::vec3> X2(X.size()), V2(X.size());
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		X2[i] = X[i] + 0.5f * dt * k1x[i];
+// 		V2[i] = V[i] + 0.5f * dt * k1v[i];
+// 	}
+// 	Ftemp = computeForces(X2, V2);
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		k2x[i] = V2[i];
+// 		k2v[i] = Ftemp[i] / mass;
+// 	}
+//
+// 	// ---- k3
+// 	// another midpoint with k2
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		X2[i] = X[i] + 0.5f * dt * k2x[i];
+// 		V2[i] = V[i] + 0.5f * dt * k2v[i];
+// 	}
+// 	Ftemp = computeForces(X2, V2);
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		k3x[i] = V2[i];
+// 		k3v[i] = Ftemp[i] / mass;
+// 	}
+//
+// 	// ---- k4
+// 	// derivative at the end of the interval (X + dt*k3x, V + dt*k3v)
+// 	std::vector<glm::vec3> X4(X.size()), V4(X.size());
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		X4[i] = X[i] + dt * k3x[i];
+// 		V4[i] = V[i] + dt * k3v[i];
+// 	}
+// 	Ftemp = computeForces(X4, V4);
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		k4x[i] = V4[i];
+// 		k4v[i] = Ftemp[i] / mass;
+// 	}
+//
+// 	// Now combine them:
+// 	// X_{n+1} = X_n + dt/6 ( k1x + 2k2x + 2k3x + k4x )
+// 	// V_{n+1} = V_n + dt/6 ( k1v + 2k2v + 2k3v + k4v )
+// 	for (size_t i = 0; i < X.size(); i++) {
+// 		glm::vec3 dx = (k1x[i] + 2.f * k2x[i] + 2.f * k3x[i] + k4x[i]) * (dt / 6.f);
+// 		glm::vec3 dv = (k1v[i] + 2.f * k2v[i] + 2.f * k3v[i] + k4v[i]) * (dt / 6.f);
+//
+// 		X[i] += dx;
+// 		V[i] += dv;
+//
+// 		// e.g. floor collision
+// 		// if (X[i].y < 0.f) {
+// 		//     X[i].y = 0.f;
+// 		//     V[i].y = 0.f; // zero vertical velocity if you want inelastic collisions
+// 		// }
+// 	}
+//
+// 	// Velocity clamping
+// 	for (size_t i = 0; i < V.size(); i++) {
+// 		float speed = glm::length(V[i]);
+// 		if (speed > maxSpeed) {
+// 			V[i] *= (maxSpeed / speed);
+// 		}
+// 	}
+//
+// 	// Put them back into the cloth’s Particle array
+// 	for (size_t i = 0; i < particles.size(); i++) {
+// 		particles[i].pos = X[i];
+// 		particles[i].velocity = V[i];
+// 	}
+// }
 
 //------------------------------------
 // Integrate using classical position-based Verlet

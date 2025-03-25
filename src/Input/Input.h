@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 class Input {
-public:
+  public:
 	static bool isKeyDown(KeyCode keycode);
 	static bool isMouseButtonDown(MouseButton button);
 

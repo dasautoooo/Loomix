@@ -35,6 +35,9 @@ add_executable(Loomix
         src/Cloth.cpp
         src/Layers/ClothLayer.cpp
         src/Layers/ClothLayer.h
+        src/Integrator.h
+        src/RK4Integrator.cpp
+        src/RK4Integrator.h
 )
 
 target_include_directories(Loomix PRIVATE third_party)

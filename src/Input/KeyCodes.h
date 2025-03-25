@@ -1,16 +1,16 @@
 #pragma once
 
-#include <stdint.h>
 #include <iostream>
+#include <stdint.h>
 
 typedef enum class KeyCode : uint16_t {
 	// From glfw3.h
 	Space = 32,
 	Apostrophe = 39, /* ' */
-	Comma = 44, /* , */
-	Minus = 45, /* - */
-	Period = 46, /* . */
-	Slash = 47, /* / */
+	Comma = 44,      /* , */
+	Minus = 45,      /* - */
+	Period = 46,     /* . */
+	Slash = 47,      /* / */
 
 	D0 = 48, /* 0 */
 	D1 = 49, /* 1 */
@@ -24,7 +24,7 @@ typedef enum class KeyCode : uint16_t {
 	D9 = 57, /* 9 */
 
 	Semicolon = 59, /* ; */
-	Equal = 61, /* = */
+	Equal = 61,     /* = */
 
 	A = 65,
 	B = 66,
@@ -54,8 +54,8 @@ typedef enum class KeyCode : uint16_t {
 	Z = 90,
 
 	LeftBracket = 91,  /* [ */
-	Backslash = 92,  /* \ */
-	RightBracket = 93,  /* ] */
+	Backslash = 92,    /* \ */
+	RightBracket = 93, /* ] */
 	GraveAccent = 96,  /* ` */
 
 	World1 = 161, /* non-US #1 */
@@ -137,19 +137,9 @@ typedef enum class KeyCode : uint16_t {
 	Menu = 348
 } Key;
 
-enum class KeyState {
-	None = -1,
-	Pressed,
-	Held,
-	Released
-};
+enum class KeyState { None = -1, Pressed, Held, Released };
 
-enum class CursorMode
-{
-	Normal = 0,
-	Hidden = 1,
-	Locked = 2
-};
+enum class CursorMode { Normal = 0, Hidden = 1, Locked = 2 };
 
 typedef enum class MouseButton : uint16_t {
 	Button0 = 0,
@@ -163,13 +153,12 @@ typedef enum class MouseButton : uint16_t {
 	Middle = Button2
 } Button;
 
-
-inline std::ostream& operator<<(std::ostream& os, KeyCode keyCode) {
+inline std::ostream &operator<<(std::ostream &os, KeyCode keyCode) {
 	os << static_cast<int32_t>(keyCode);
 	return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, MouseButton button) {
+inline std::ostream &operator<<(std::ostream &os, MouseButton button) {
 	os << static_cast<int32_t>(button);
 	return os;
 }

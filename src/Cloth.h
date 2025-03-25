@@ -5,6 +5,8 @@
 #ifndef CLOTH_H
 #define CLOTH_H
 
+#include "Integrator.h"
+
 #include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
@@ -54,7 +56,7 @@ class Cloth {
 	void setShearDamperConstant(float kd);
 	void setBendingDamperConstant(float kd);
 
-	void setMaxSpeed(float mv) {maxSpeed = mv;};
+	void setMaxSpeed(float mv) { maxSpeed = mv; };
 
 	void setGravity(const glm::vec3 &g) { gravity = g; }
 	void setMass(float m) { mass = m; }
@@ -70,14 +72,18 @@ class Cloth {
 	uint32_t getClothWidth() const { return numX + 1; }
 	uint32_t getClothHeight() const { return numY + 1; }
 
+	void setIntegrator(std::unique_ptr<Integrator> newIntegrator) {
+		integrator = std::move(newIntegrator);
+	}
+
   private:
 	// Helper methods
 	void addSpring(int p1Index, int p2Index, Spring::SpringType type);
 
 	std::vector<glm::vec3> computeForces(const std::vector<glm::vec3> &positions,
 	                                     const std::vector<glm::vec3> &velocities);
-	void integrateRK4(float dt);
-	// void integrateVerlet(float dt);
+
+	void velocityClamp(std::vector<glm::vec3> &velocities);
 
   private:
 	// Grid resolution
@@ -105,6 +111,8 @@ class Cloth {
 	std::vector<Spring> springs;
 	std::vector<glm::vec3> X; // positions
 	std::vector<glm::vec3> V; // velocities
+
+	std::unique_ptr<Integrator> integrator;
 };
 
 #endif // CLOTH_H
