@@ -50,8 +50,17 @@ void ClothLayer::onUIRender() {
 	ImGui::Text("Last render: %.3fms", lastRenderTime);
 	ImGui::Text("Timestep: %.4f s", 1.0f / ImGui::GetIO().Framerate);
 
-	// Add a reset button
+	// Show simTime
+	ImGui::Text("Sim Time: %.2f s", simTime);
+
+	// Pause/unpause
+	if (ImGui::Button(paused ? "Resume Simulation" : "Pause Simulation")) {
+		paused = !paused;
+	}
+
 	if (ImGui::Button("Reset Cloth")) {
+		simTime = 0.0f;  // <--- Reset the timer
+
 		delete cloth;
 		setupCloth();
 	}
@@ -129,23 +138,16 @@ void ClothLayer::onUIRender() {
 void ClothLayer::onUpdate(float ts) {
 	Timer timer;
 
-	// 1) Handle camera input
+	// 1) Handle camera input always
 	handleCameraInput(ts);
 
-	// 2) Integrate cloth
-	cloth->update(ts);
+	// 2) If not paused, integrate cloth & accumulate time
+	if (!paused) {
+		cloth->update(ts);
+		simTime += ts;
+	}
 
-	// Print positions of each particle
-	// const auto& particles = cloth->getParticles();
-	// for (size_t i = 0; i < particles.size(); i++) {
-	//     const auto& p = particles[i];
-	//     std::cout << "Particle " << i << ": ("
-	//               << p.position.x << ", "
-	//               << p.position.y << ", "
-	//               << p.position.z << ")\n";
-	// }
-
-	// 3) Render to the framebuffer
+	// 3) Render
 	renderToFramebuffer(ts);
 
 	lastRenderTime = timer.elapsedMillis();

@@ -55,6 +55,9 @@ class ClothLayer : public Layer {
 
 	bool wireframe = false;
 
+	bool paused = false;
+	float simTime = 0.0f;
+
   private:
 	void createOrResizeFBO(int width, int height);
 	void renderToFramebuffer(float ts);
