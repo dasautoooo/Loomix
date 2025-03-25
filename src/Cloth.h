@@ -5,7 +5,7 @@
 #ifndef CLOTH_H
 #define CLOTH_H
 
-#include "Integrator.h"
+#include "Integrators/Integrator.h"
 
 #include <glm/glm.hpp>
 #include <iostream>
@@ -72,9 +72,14 @@ class Cloth {
 	uint32_t getClothWidth() const { return numX + 1; }
 	uint32_t getClothHeight() const { return numY + 1; }
 
-	void setIntegrator(std::unique_ptr<Integrator> newIntegrator) {
-		integrator = std::move(newIntegrator);
-	}
+	enum class IntegrationMethod {
+		EXPLICIT_EULER = 0,
+		IMPLICIT_EULER = 1,
+		RUNGE_KUTTA = 2,
+		VERLET = 3
+	};
+
+	void setIntegrator(IntegrationMethod method);
 
   private:
 	// Helper methods

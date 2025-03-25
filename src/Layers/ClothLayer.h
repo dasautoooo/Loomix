@@ -48,6 +48,9 @@ class ClothLayer : public Layer {
 	int selectedPinMode = static_cast<int>(Cloth::PinMode::TOP_CORNERS);
 	Cloth::PinMode pinMode = Cloth::PinMode::TOP_CORNERS;
 
+	int selectedIntegrator = static_cast<int>(Cloth::IntegrationMethod::EXPLICIT_EULER);
+	Cloth::IntegrationMethod integrator = Cloth::IntegrationMethod::EXPLICIT_EULER;
+
 	Shader *shader = nullptr;
 
 	bool wireframe = false;

@@ -5,7 +5,7 @@
 #include "ClothLayer.h"
 
 #include "../Input/Input.h"
-#include "../RK4Integrator.h"
+#include "../Integrators/RK4Integrator.h"
 #include "../Utilities/Timer.h"
 #include "imgui.h"
 
@@ -94,6 +94,11 @@ void ClothLayer::onUIRender() {
 	if (ImGui::Combo("Pin Mode", &selectedPinMode, pinModes, IM_ARRAYSIZE(pinModes))) {
 		pinMode = static_cast<Cloth::PinMode>(selectedPinMode);
 		cloth->pinCorners(pinMode);
+	}
+
+	const char *integrationMethods[] = {"Explict Euler", "Implicit Euler", "Runge Kutta", "Verlet"};
+	if (ImGui::Combo("Integration Methodd", &selectedIntegrator, integrationMethods, IM_ARRAYSIZE(integrationMethods))) {
+		integrator = static_cast<Cloth::IntegrationMethod>(selectedIntegrator);
 	}
 
 	ImGui::End();
@@ -337,7 +342,7 @@ void ClothLayer::setupCloth() {
 	cloth->setBendingSpringConstant(bendingStiffness);
 	cloth->setBendingDamperConstant(bendingDamping);
 	cloth->pinCorners(pinMode);
-	cloth->setIntegrator(std::make_unique<RK4Integrator>());
+	cloth->setIntegrator(integrator);
 }
 
 void ClothLayer::cleanupFramebuffer() {
