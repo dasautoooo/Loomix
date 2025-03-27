@@ -56,7 +56,12 @@ class ClothLayer : public Layer {
 	bool wireframe = false;
 
 	bool paused = false;
+
+	float timeAccumulator = 0.0f;  // accumulates real time
+	float userDt = 0.016f; // default to ~60 FPS step
+
 	float simTime = 0.0f;
+
 
   private:
 	void createOrResizeFBO(int width, int height);

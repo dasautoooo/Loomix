@@ -55,3 +55,6 @@ file(GLOB SHADER_FILES "${CMAKE_SOURCE_DIR}/shaders/*.*")
 foreach(SHADER ${SHADER_FILES})
     configure_file(${SHADER} ${CMAKE_BINARY_DIR} COPYONLY)
 endforeach()
+
+# Copy entire assets folder to the build directory
+file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})

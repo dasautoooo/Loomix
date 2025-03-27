@@ -46,9 +46,8 @@ ClothLayer::~ClothLayer() {
 void ClothLayer::onUIRender() {
 	// Settings panel
 	ImGui::Begin("Settings");
-	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+	ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
 	ImGui::Text("Last render: %.3fms", lastRenderTime);
-	ImGui::Text("Timestep: %.4f s", 1.0f / ImGui::GetIO().Framerate);
 
 	// Show simTime
 	ImGui::Text("Sim Time: %.2f s", simTime);
@@ -64,6 +63,8 @@ void ClothLayer::onUIRender() {
 		delete cloth;
 		setupCloth();
 	}
+
+	ImGui::SliderFloat("Integration dt", &userDt, 0.0f, 2.0f, "%.4f");
 
 	if (ImGui::SliderFloat("Particle Mass", &clothMass, 0.0f, 10.0f, "%.4f")) {
 		cloth->setMass(clothMass);
@@ -143,8 +144,14 @@ void ClothLayer::onUpdate(float ts) {
 
 	// 2) If not paused, integrate cloth & accumulate time
 	if (!paused) {
-		cloth->update(ts);
-		simTime += ts;
+		timeAccumulator += ts; // add this frame's real time
+
+		// As long as we have enough accumulated time, do sub-steps
+		while (timeAccumulator >= userDt && userDt > 0.0f) {
+			cloth->update(userDt);
+			simTime += userDt;       // track total sim time
+			timeAccumulator -= userDt;
+		}
 	}
 
 	// 3) Render
