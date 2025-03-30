@@ -44,58 +44,112 @@ ClothLayer::~ClothLayer() {
 }
 
 void ClothLayer::onUIRender() {
-	// Settings panel
 	ImGui::Begin("Settings");
 	ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
 	ImGui::Text("Last render: %.3fms", lastRenderTime);
-
-	// Show simTime
 	ImGui::Text("Sim Time: %.2f s", simTime);
 
-	// Pause/unpause
 	if (ImGui::Button(paused ? "Resume Simulation" : "Pause Simulation")) {
 		paused = !paused;
 	}
 
 	if (ImGui::Button("Reset Cloth")) {
-		simTime = 0.0f;  // <--- Reset the timer
-
+		simTime = 0.0f;
 		delete cloth;
 		setupCloth();
 	}
 
-	ImGui::SliderFloat("Integration dt", &userDt, 0.0f, 2.0f, "%.4f");
+	// Add toggle button for input mode
+	static bool useSliders = true;
+	ImGui::Checkbox("Use Sliders", &useSliders);
 
-	if (ImGui::SliderFloat("Particle Mass", &clothMass, 0.0f, 10.0f, "%.4f")) {
-		cloth->setMass(clothMass);
+	// Integration dt
+	if (useSliders) {
+		ImGui::SliderFloat("Integration dt", &userDt, 0.0f, 2.0f, "%.4f");
+	} else {
+		ImGui::InputFloat("Integration dt", &userDt, 0.001f, 0.01f, "%.4f");
+	}
+	userDt = glm::max(userDt, 0.0f);
+
+	// Particle Mass
+	if (useSliders) {
+		if (ImGui::SliderFloat("Particle Mass", &clothMass, 0.0f, 10.0f, "%.4f")) {
+			cloth->setMass(clothMass);
+		}
+	} else {
+		if (ImGui::InputFloat("Particle Mass", &clothMass, 0.1f, 1.0f, "%.4f")) {
+			clothMass = glm::max(clothMass, 0.001f);
+			cloth->setMass(clothMass);
+		}
 	}
 
-	if (ImGui::SliderFloat("Structure Stiffness", &clothStiffness, 0.0f, 5.0f, "%.4f")) {
-		cloth->setStructureSpringConstant(clothStiffness);
+	// Structure Springs
+	if (useSliders) {
+		if (ImGui::SliderFloat("Structure Stiffness", &clothStiffness, 0.0f, 5.0f, "%.4f")) {
+			cloth->setStructureSpringConstant(clothStiffness);
+		}
+		if (ImGui::SliderFloat("Structure Damping", &clothDamping, 0.0f, 2.0f, "%.4f")) {
+			cloth->setStructureDamperConstant(clothDamping);
+		}
+	} else {
+		if (ImGui::InputFloat("Structure Stiffness", &clothStiffness, 0.1f, 1.0f, "%.4f")) {
+			clothStiffness = glm::max(clothStiffness, 0.0f);
+			cloth->setStructureSpringConstant(clothStiffness);
+		}
+		if (ImGui::InputFloat("Structure Damping", &clothDamping, 0.01f, 0.1f, "%.4f")) {
+			clothDamping = glm::max(clothDamping, 0.0f);
+			cloth->setStructureDamperConstant(clothDamping);
+		}
 	}
 
-	if (ImGui::SliderFloat("Structure Damping", &clothDamping, 0.0f, 2.0f, "%.4f")) {
-		cloth->setStructureDamperConstant(clothDamping);
+	// Shear Springs
+	if (useSliders) {
+		if (ImGui::SliderFloat("Shear Stiffness", &shearStiffness, 0.0f, 5.0f, "%.4f")) {
+			cloth->setShearSpringConstant(shearStiffness);
+		}
+		if (ImGui::SliderFloat("Shear Damping", &shearDamping, 0.0f, 2.0f, "%.4f")) {
+			cloth->setShearDamperConstant(shearDamping);
+		}
+	} else {
+		if (ImGui::InputFloat("Shear Stiffness", &shearStiffness, 0.1f, 1.0f, "%.4f")) {
+			shearStiffness = glm::max(shearStiffness, 0.0f);
+			cloth->setShearSpringConstant(shearStiffness);
+		}
+		if (ImGui::InputFloat("Shear Damping", &shearDamping, 0.01f, 0.1f, "%.4f")) {
+			shearDamping = glm::max(shearDamping, 0.0f);
+			cloth->setShearDamperConstant(shearDamping);
+		}
 	}
 
-	if (ImGui::SliderFloat("Sheer Stiffness", &shearStiffness, 0.0f, 5.0f, "%.4f")) {
-		cloth->setShearSpringConstant(shearStiffness);
+	// Bending Springs
+	if (useSliders) {
+		if (ImGui::SliderFloat("Bending Stiffness", &bendingStiffness, 0.0f, 5.0f, "%.4f")) {
+			cloth->setBendingSpringConstant(bendingStiffness);
+		}
+		if (ImGui::SliderFloat("Bending Damping", &bendingDamping, 0.0f, 2.0f, "%.4f")) {
+			cloth->setBendingDamperConstant(bendingDamping);
+		}
+	} else {
+		if (ImGui::InputFloat("Bending Stiffness", &bendingStiffness, 0.1f, 1.0f, "%.4f")) {
+			bendingStiffness = glm::max(bendingStiffness, 0.0f);
+			cloth->setBendingSpringConstant(bendingStiffness);
+		}
+		if (ImGui::InputFloat("Bending Damping", &bendingDamping, 0.01f, 0.1f, "%.4f")) {
+			bendingDamping = glm::max(bendingDamping, 0.0f);
+			cloth->setBendingDamperConstant(bendingDamping);
+		}
 	}
 
-	if (ImGui::SliderFloat("Sheer Damping", &shearDamping, 0.0f, 2.0f, "%.4f")) {
-		cloth->setShearDamperConstant(shearDamping);
-	}
-
-	if (ImGui::SliderFloat("Bending Stiffness", &bendingStiffness, 0.0f, 5.0f, "%.4f")) {
-		cloth->setBendingSpringConstant(bendingStiffness);
-	}
-
-	if (ImGui::SliderFloat("Bending Damping", &bendingDamping, 0.0f, 2.0f, "%.4f")) {
-		cloth->setBendingDamperConstant(bendingDamping);
-	}
-
-	if (ImGui::SliderFloat("Max Speed Clamping", &maxSpeed, 0.0f, 25.0f, "%.4f")) {
-		cloth->setMaxSpeed(maxSpeed);
+	// Max Speed
+	if (useSliders) {
+		if (ImGui::SliderFloat("Max Speed", &maxSpeed, 0.0f, 25.0f, "%.4f")) {
+			cloth->setMaxSpeed(maxSpeed);
+		}
+	} else {
+		if (ImGui::InputFloat("Max Speed", &maxSpeed, 0.1f, 1.0f, "%.4f")) {
+			maxSpeed = glm::max(maxSpeed, 0.0f);
+			cloth->setMaxSpeed(maxSpeed);
+		}
 	}
 
 	ImGui::Checkbox("Wireframe", &wireframe);
