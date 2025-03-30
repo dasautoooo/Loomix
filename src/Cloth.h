@@ -81,6 +81,10 @@ class Cloth {
 
 	void setIntegrator(IntegrationMethod method);
 
+	bool isSpringLengthUnstable();
+
+	bool isVelocityUnstable();
+
   private:
 	// Helper methods
 	void addSpring(int p1Index, int p2Index, Spring::SpringType type);

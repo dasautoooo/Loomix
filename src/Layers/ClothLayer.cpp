@@ -205,6 +205,15 @@ void ClothLayer::onUpdate(float ts) {
 			cloth->update(userDt);
 			simTime += userDt;       // track total sim time
 			timeAccumulator -= userDt;
+
+			// Check for instability after each update
+			if (cloth->isSpringLengthUnstable() && cloth->isVelocityUnstable()) {
+
+				// Log when instability occurred
+				std::cout << "Instability detected at simulation time: " << simTime << "s" << std::endl;
+				paused = true;
+				break;
+			}
 		}
 	}
 

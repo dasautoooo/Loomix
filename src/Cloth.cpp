@@ -351,6 +351,65 @@ std::vector<glm::vec3> Cloth::computeForces(const std::vector<glm::vec3> &positi
 	return forceAccumulators;
 }
 
+bool Cloth::isSpringLengthUnstable() {
+	const float MAX_EXTENSION_RATIO = 3.0f; // Springs stretched to 3x their rest length
+
+	for (auto &spring : springs) {
+		glm::vec3 deltaP = particles[spring.p1].pos - particles[spring.p2].pos;
+		spring.currentLength = glm::length(deltaP);
+
+		if (spring.currentLength > spring.restLength * MAX_EXTENSION_RATIO) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Cloth::isVelocityUnstable() {
+	// For comparing with previous frame
+	static std::vector<glm::vec3> previousVelocities;
+	static bool firstFrame = true;
+	const float MAX_VELOCITY_CHANGE_RATIO = 5.0f;
+
+	// Initialize previous velocities if needed
+	if (firstFrame || previousVelocities.size() != particles.size()) {
+		previousVelocities.resize(particles.size());
+		for (size_t i = 0; i < particles.size(); i++) {
+			previousVelocities[i] = particles[i].velocity;
+		}
+		firstFrame = false;
+		return false;
+	}
+
+	// Check for instability
+	for (size_t i = 0; i < particles.size(); i++) {
+		// Skip pinned particles
+		if (pinned.size() > i && pinned[i])
+			continue;
+
+		const glm::vec3 &v = particles[i].velocity;
+		float speed = glm::length(v);
+
+		// Relative change check
+		glm::vec3 prevV = previousVelocities[i];
+		float prevSpeed = glm::length(prevV);
+
+		if (prevSpeed > 0.01f) { // Only if previous velocity was significant
+			float changeRatio = speed / prevSpeed;
+			if (changeRatio > MAX_VELOCITY_CHANGE_RATIO) {
+				return true;
+			}
+		}
+	}
+
+	// Update previous velocities for next frame
+	for (size_t i = 0; i < particles.size(); i++) {
+		previousVelocities[i] = particles[i].velocity;
+	}
+
+	return false;
+}
+
 void Cloth::velocityClamp(std::vector<glm::vec3> &velocities) {
 	for (size_t i = 0; i < V.size(); i++) {
 		float speed = glm::length(velocities[i]);
@@ -359,166 +418,3 @@ void Cloth::velocityClamp(std::vector<glm::vec3> &velocities) {
 		}
 	}
 }
-//
-// void Cloth::integrateRK4(float dt) {
-// 	// Gather X, V from particles
-// 	for (size_t i = 0; i < particles.size(); i++) {
-// 		X[i] = particles[i].pos;
-// 		V[i] = particles[i].velocity;
-// 	}
-//
-// 	// Define temporary arrays for the four derivative stages
-// 	std::vector<glm::vec3> k1x(X.size()), k1v(X.size());
-// 	std::vector<glm::vec3> k2x(X.size()), k2v(X.size());
-// 	std::vector<glm::vec3> k3x(X.size()), k3v(X.size());
-// 	std::vector<glm::vec3> k4x(X.size()), k4v(X.size());
-//
-// 	std::vector<glm::vec3> Ftemp;
-//
-// 	// ---- k1
-// 	// derivative at the start
-// 	// dx/dt = V, dv/dt = a = F/m
-// 	// 1) compute forces with current X, V
-// 	Ftemp = computeForces(X, V);
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		k1x[i] = V[i];            // derivative of X is velocity
-// 		k1v[i] = Ftemp[i] / mass; // derivative of V is acceleration
-// 	}
-//
-// 	// ---- k2
-// 	// Evaluate derivative at the midpoint (X + dt/2*k1x, V + dt/2*k1v)
-// 	std::vector<glm::vec3> X2(X.size()), V2(X.size());
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		X2[i] = X[i] + 0.5f * dt * k1x[i];
-// 		V2[i] = V[i] + 0.5f * dt * k1v[i];
-// 	}
-// 	Ftemp = computeForces(X2, V2);
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		k2x[i] = V2[i];
-// 		k2v[i] = Ftemp[i] / mass;
-// 	}
-//
-// 	// ---- k3
-// 	// another midpoint with k2
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		X2[i] = X[i] + 0.5f * dt * k2x[i];
-// 		V2[i] = V[i] + 0.5f * dt * k2v[i];
-// 	}
-// 	Ftemp = computeForces(X2, V2);
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		k3x[i] = V2[i];
-// 		k3v[i] = Ftemp[i] / mass;
-// 	}
-//
-// 	// ---- k4
-// 	// derivative at the end of the interval (X + dt*k3x, V + dt*k3v)
-// 	std::vector<glm::vec3> X4(X.size()), V4(X.size());
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		X4[i] = X[i] + dt * k3x[i];
-// 		V4[i] = V[i] + dt * k3v[i];
-// 	}
-// 	Ftemp = computeForces(X4, V4);
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		k4x[i] = V4[i];
-// 		k4v[i] = Ftemp[i] / mass;
-// 	}
-//
-// 	// Now combine them:
-// 	// X_{n+1} = X_n + dt/6 ( k1x + 2k2x + 2k3x + k4x )
-// 	// V_{n+1} = V_n + dt/6 ( k1v + 2k2v + 2k3v + k4v )
-// 	for (size_t i = 0; i < X.size(); i++) {
-// 		glm::vec3 dx = (k1x[i] + 2.f * k2x[i] + 2.f * k3x[i] + k4x[i]) * (dt / 6.f);
-// 		glm::vec3 dv = (k1v[i] + 2.f * k2v[i] + 2.f * k3v[i] + k4v[i]) * (dt / 6.f);
-//
-// 		X[i] += dx;
-// 		V[i] += dv;
-//
-// 		// e.g. floor collision
-// 		// if (X[i].y < 0.f) {
-// 		//     X[i].y = 0.f;
-// 		//     V[i].y = 0.f; // zero vertical velocity if you want inelastic collisions
-// 		// }
-// 	}
-//
-// 	// Velocity clamping
-// 	for (size_t i = 0; i < V.size(); i++) {
-// 		float speed = glm::length(V[i]);
-// 		if (speed > maxSpeed) {
-// 			V[i] *= (maxSpeed / speed);
-// 		}
-// 	}
-//
-// 	// Put them back into the cloth’s Particle array
-// 	for (size_t i = 0; i < particles.size(); i++) {
-// 		particles[i].pos = X[i];
-// 		particles[i].velocity = V[i];
-// 	}
-// }
-
-//------------------------------------
-// Integrate using classical position-based Verlet
-//------------------------------------
-// void Cloth::integrateVerlet(float dt)
-// {
-//     float dt2mass = (dt * dt) / mass;
-//     for (size_t i = 0; i < X.size(); i++) {
-//         // if pinned, skip
-//         if (pinned[i]) {
-//             continue;
-//         }
-//         // otherwise, standard Verlet
-//         glm::vec3 temp = X[i];
-//         X[i] = X[i] + (X[i] - X_last[i]) + F[i] * dt2mass;
-//         X_last[i] = temp;
-//
-//         // e.g. floor collision
-//         if (X[i].y < 0.f) {
-//             X[i].y = 0.f;
-//         }
-//     }
-// }
-
-//------------------------------------
-// Ellipsoid collision
-//------------------------------------
-// void Cloth::ellipsoidCollision()
-// {
-//     // e.g. from your code, we do a transform approach
-//     for(size_t i=0; i< X.size(); i++){
-//         glm::vec4 xp= inverse_ellipsoid* glm::vec4(X[i],1.f);
-//         glm::vec3 delta= glm::vec3(xp)- center;
-//         float dist= glm::length(delta);
-//         if(dist< radius){
-//             float diff= radius- dist;
-//             glm::vec3 fix= (diff* delta)/ dist;
-//             xp.x+= fix.x;
-//             xp.y+= fix.y;
-//             xp.z+= fix.z;
-//
-//             // transform back
-//             glm::vec3 newPos= glm::vec3(ellipsoid* xp);
-//             X[i]= newPos;
-//             X_last[i]= newPos;
-//         }
-//     }
-// }
-
-//------------------------------------
-// Provot dynamic inverse
-//------------------------------------
-// void Cloth::applyProvotInverse()
-// {
-//     for(auto &s: springs){
-//         glm::vec3 p1= X[s.p1];
-//         glm::vec3 p2= X[s.p2];
-//         glm::vec3 dp= p1- p2;
-//         float dist= glm::length(dp);
-//         if(dist> s.rest_length){
-//             float diff= (dist- s.rest_length)*0.5f;
-//             dp= glm::normalize(dp)* diff;
-//
-//             X[s.p1]-= dp;
-//             X[s.p2]+= dp;
-//         }
-//     }
-// }
