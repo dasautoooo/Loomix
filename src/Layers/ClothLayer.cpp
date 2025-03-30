@@ -353,6 +353,11 @@ void ClothLayer::setupCloth() {
 	cloth->setBendingDamperConstant(bendingDamping);
 	cloth->pinCorners(pinMode);
 	cloth->setIntegrator(integrator);
+
+	// Calculate cloth center for camera target
+	float centerX = (clothW - 1) * 0.1f / 2.0f;
+	float centerZ = -(clothH - 1) * 0.1f / 2.0f;
+	camera->target = glm::vec3(centerX, 0.0f, centerZ);
 }
 
 void ClothLayer::cleanupFramebuffer() {
