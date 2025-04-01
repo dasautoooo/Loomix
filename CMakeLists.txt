@@ -40,6 +40,8 @@ add_executable(Loomix
         src/Integrators/RK4Integrator.h
         src/Integrators/ExplicitEulerIntegrator.cpp
         src/Integrators/ExplicitEulerIntegrator.h
+        src/Integrators/VerletIntegrator.cpp
+        src/Integrators/VerletIntegrator.h
 )
 
 target_include_directories(Loomix PRIVATE third_party)

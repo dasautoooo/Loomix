@@ -55,7 +55,10 @@ class ClothLayer : public Layer {
 
 	bool wireframe = false;
 
+	bool useSliders = true;
+
 	bool paused = false;
+	bool pauseOnInstability = false;
 
 	float timeAccumulator = 0.0f;  // accumulates real time
 	float userDt = 0.016f; // default to ~60 FPS step

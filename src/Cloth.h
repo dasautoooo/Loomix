@@ -74,9 +74,8 @@ class Cloth {
 
 	enum class IntegrationMethod {
 		EXPLICIT_EULER = 0,
-		IMPLICIT_EULER = 1,
-		RUNGE_KUTTA = 2,
-		VERLET = 3
+		RUNGE_KUTTA = 1,
+		VERLET = 2
 	};
 
 	void setIntegrator(IntegrationMethod method);

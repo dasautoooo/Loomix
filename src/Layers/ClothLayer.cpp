@@ -59,8 +59,9 @@ void ClothLayer::onUIRender() {
 		setupCloth();
 	}
 
+	ImGui::Checkbox("Pause on Instability Detect", &pauseOnInstability);
+
 	// Add toggle button for input mode
-	static bool useSliders = true;
 	ImGui::Checkbox("Use Sliders", &useSliders);
 
 	// Integration dt
@@ -160,7 +161,7 @@ void ClothLayer::onUIRender() {
 		cloth->pinCorners(pinMode);
 	}
 
-	const char *integrationMethods[] = {"Explict Euler", "Implicit Euler", "Runge Kutta", "Verlet"};
+	const char *integrationMethods[] = {"Explict Euler", "Runge Kutta", "Verlet"};
 	if (ImGui::Combo("Integration Methodd", &selectedIntegrator, integrationMethods, IM_ARRAYSIZE(integrationMethods))) {
 		integrator = static_cast<Cloth::IntegrationMethod>(selectedIntegrator);
 	}
@@ -207,7 +208,7 @@ void ClothLayer::onUpdate(float ts) {
 			timeAccumulator -= userDt;
 
 			// Check for instability after each update
-			if (cloth->isSpringLengthUnstable() && cloth->isVelocityUnstable()) {
+			if (this->pauseOnInstability && cloth->isSpringLengthUnstable() && cloth->isVelocityUnstable()) {
 
 				// Log when instability occurred
 				std::cout << "Instability detected at simulation time: " << simTime << "s" << std::endl;

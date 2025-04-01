@@ -6,6 +6,7 @@
 
 #include "Integrators/ExplicitEulerIntegrator.h"
 #include "Integrators/RK4Integrator.h"
+#include "Integrators/VerletIntegrator.h"
 
 Cloth::Cloth()
     : numX(0), numY(0), totalPoints(0), spacing(0.2f), mass(1.0f), gravity(0.f, -0.00981f, 0.f),
@@ -140,12 +141,11 @@ void Cloth::setIntegrator(IntegrationMethod method){
 	case IntegrationMethod::EXPLICIT_EULER:
 		integrator = std::move(std::make_unique<ExplicitEulerIntegrator>());
 		break;
-	case IntegrationMethod::IMPLICIT_EULER:
-		break;
 	case IntegrationMethod::RUNGE_KUTTA:
 		integrator = std::move(std::make_unique<RK4Integrator>());
 		break;
 	case IntegrationMethod::VERLET:
+		integrator = std::move(std::make_unique<VerletIntegrator>());
 		break;
 	}
 }
