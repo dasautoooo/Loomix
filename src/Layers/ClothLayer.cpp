@@ -272,7 +272,8 @@ void ClothLayer::renderToFramebuffer(float ts) {
 
 	glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
-	glClearColor(0.1373f, 0.1373f, 0.1373f, 1.0f);
+	// glClearColor(0.1373f, 0.1373f, 0.1373f, 1.0f);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
