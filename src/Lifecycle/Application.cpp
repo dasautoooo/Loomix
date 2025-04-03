@@ -268,6 +268,10 @@ void Application::init() {
 	// io.ConfigViewportsNoAutoMerge = true;
 	// io.ConfigViewportsNoTaskBarIcon = true;
 
+	io.ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
+	io.ConfigFlags &= ~ImGuiConfigFlags_DpiEnableScaleViewports;
+	io.ConfigFlags &= ~ImGuiConfigFlags_DpiEnableScaleFonts;
+
 	// Setup Dear ImGui style
 	// ImGui::StyleColorsDark();
 	ImGui::StyleColorsLight();
