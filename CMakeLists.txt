@@ -3,6 +3,40 @@ project(Loomix)
 
 set(CMAKE_CXX_STANDARD 20)
 
+# Configure cross-platform
+if(WIN32)
+    message(STATUS ">>> Windows build detected")
+elseif(APPLE)
+    message(STATUS ">>> macOS build detected")
+elseif(UNIX)
+    message(STATUS ">>> Linux/UNIX build detected")
+endif()
+
+# Provide typical build types
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel" CACHE STRING "" FORCE)
+
+# Or define distribution option
+option(DISTRIBUTION_BUILD "Enable distribution build (max optimization, no dev features)" OFF)
+
+if(DISTRIBUTION_BUILD)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+    add_definitions(-DDISTRIBUTION_BUILD)
+    message(STATUS ">>> Distribution build enabled")
+else()
+    if(NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
+    endif()
+endif()
+
+message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+
+if(DISTRIBUTION_BUILD)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto -DNDEBUG")
+endif()
+
 # Find dependencies
 find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
