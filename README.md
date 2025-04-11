@@ -25,7 +25,7 @@ Loomix is an interactive, real-time cloth simulation project written in C++20 us
 
 ### 1. Clone the repository
 ```bash
-git clone --recurse-submodules https://github.com/your-username/loomix.git
+git clone --recurse-submodules https://github.com/dasautoooo/Loomix.git
 cd loomix
 ```
 
