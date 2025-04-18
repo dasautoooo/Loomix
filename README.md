@@ -96,3 +96,4 @@ All rendering is handled via OpenGL. Shaders are loaded at runtime from the `sha
 
 - Leonard Chen (`chenl299@mcmaster.ca`)
 - Steven Shi (`shij67@mcmaster.ca`)
+- Suqing Liu (`liu2684@mcmaster.ca`)
